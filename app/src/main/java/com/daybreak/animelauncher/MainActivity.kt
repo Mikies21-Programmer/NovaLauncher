@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @android.annotation.SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

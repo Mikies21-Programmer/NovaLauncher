@@ -28,7 +28,7 @@ class NotificationMonitorService : NotificationListenerService() {
         var isConnected = false
             private set
 
-        // Lista base extensible de paquetes de mensajería para filtrado opcional futuro
+        // Lista base extensible de paquetes de mensajería para filtrado estricto
         val KNOWN_MESSAGING_PACKAGES = setOf(
             "com.whatsapp",
             "com.whatsapp.w4b",
@@ -40,8 +40,23 @@ class NotificationMonitorService : NotificationListenerService() {
             "com.instagram.android",
             "com.discord",
             "com.slack",
-            "com.google.android.gm"
+            "com.google.android.gm",
+            "com.microsoft.teams",
+            "com.viber.voip",
+            "jp.naver.line.android",
+            "com.tencent.mm",
+            "com.skype.raider",
+            "org.thoughtcrime.securesms"
         )
+
+        fun isMessagingNotification(sbn: StatusBarNotification): Boolean {
+            if (sbn.isOngoing) return false
+            val pkg = sbn.packageName?.lowercase() ?: return false
+            if (KNOWN_MESSAGING_PACKAGES.contains(pkg)) return true
+            val cat = sbn.notification?.category
+            if (cat == android.app.Notification.CATEGORY_MESSAGE || cat == android.app.Notification.CATEGORY_EMAIL) return true
+            return false
+        }
 
         fun isPermissionGranted(context: Context): Boolean {
             val enabledListeners = NotificationManagerCompat.getEnabledListenerPackages(context)
@@ -85,8 +100,8 @@ class NotificationMonitorService : NotificationListenerService() {
         try {
             val active = activeNotifications
             if (active != null) {
-                // Cuenta notificaciones activas que no sean servicios continuos (ongoing)
-                val count = active.count { !it.isOngoing }
+                // Cuenta exclusivamente notificaciones activas de mensajería para no presentar otras alertas como mensajes
+                val count = active.count { isMessagingNotification(it) }
                 _notificationCount.value = count
             } else {
                 _notificationCount.value = 0

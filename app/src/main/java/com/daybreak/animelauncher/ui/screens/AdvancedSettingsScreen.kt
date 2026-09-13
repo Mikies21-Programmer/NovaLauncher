@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,7 +89,8 @@ fun SliderSettingItem(
     value: Float,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     displayValue: String,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
@@ -106,6 +107,7 @@ fun SliderSettingItem(
         Slider(
             value = value,
             onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             colors = SliderDefaults.colors(
                 thumbColor = Color(0xFF00F0FF),
@@ -122,10 +124,13 @@ fun AdvancedSettingsScreen(
     styleConfig: AdvancedStyleConfig,
     backgroundUri: String,
     isEs: Boolean,
-    onUpdate: (AdvancedStyleConfig) -> Unit,
+    onUpdateTransient: (AdvancedStyleConfig) -> Unit,
+    onPersist: (AdvancedStyleConfig) -> Unit,
     onReset: () -> Unit,
     onBack: () -> Unit
 ) {
+    var currentStyle by androidx.compose.runtime.remember(styleConfig) { androidx.compose.runtime.mutableStateOf(styleConfig) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         DynamicBackground(
             defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,
@@ -217,44 +222,63 @@ fun AdvancedSettingsScreen(
                         ColorSettingItem(
                             title = if (isEs) "Color de Acento Neón" else "Neon Accent Color",
                             description = if (isEs) "Tono principal para bordes, brillos y destaques" else "Primary tone for borders, glows and highlights",
-                            currentColorHex = styleConfig.accentColor,
-                            onColorChange = { onUpdate(styleConfig.copy(accentColor = it)) }
+                            currentColorHex = currentStyle.accentColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(accentColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         SliderSettingItem(
                             title = if (isEs) "Transparencia de Paneles Glass" else "Glass Panel Transparency",
                             description = if (isEs) "Nivel de opacidad de tarjetas y paneles translúcidos" else "Opacity level for cards and translucent panels",
-                            value = styleConfig.panelTransparency,
+                            value = currentStyle.panelTransparency,
                             valueRange = 0.20f..1.00f,
-                            displayValue = "${(styleConfig.panelTransparency * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(panelTransparency = it)) }
+                            displayValue = "${(currentStyle.panelTransparency * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(panelTransparency = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         SliderSettingItem(
                             title = if (isEs) "Brillo de Borde Glass" else "Glass Border Glow",
                             description = if (isEs) "Intensidad del contorno cristalino" else "Intensity of crystal outline",
-                            value = styleConfig.glassBorderAlpha,
+                            value = currentStyle.glassBorderAlpha,
                             valueRange = 0.05f..0.60f,
-                            displayValue = "${(styleConfig.glassBorderAlpha * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(glassBorderAlpha = it)) }
+                            displayValue = "${(currentStyle.glassBorderAlpha * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(glassBorderAlpha = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         SliderSettingItem(
                             title = if (isEs) "Redondeo de Esquinas" else "Corner Rounding",
                             description = if (isEs) "Curvatura de los paneles Glass" else "Curvature of Glass panels",
-                            value = styleConfig.cornerRadius,
+                            value = currentStyle.cornerRadius,
                             valueRange = 8f..32f,
-                            displayValue = "${styleConfig.cornerRadius.toInt()} dp",
-                            onValueChange = { onUpdate(styleConfig.copy(cornerRadius = it)) }
+                            displayValue = "${currentStyle.cornerRadius.toInt()} dp",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(cornerRadius = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         SliderSettingItem(
                             title = if (isEs) "Opacidad de Widgets" else "Widget Opacity",
                             description = if (isEs) "Contraste de fondo para widgets integrados" else "Background contrast for integrated widgets",
-                            value = styleConfig.widgetOpacity,
+                            value = currentStyle.widgetOpacity,
                             valueRange = 0.20f..1.00f,
-                            displayValue = "${(styleConfig.widgetOpacity * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(widgetOpacity = it)) }
+                            displayValue = "${(currentStyle.widgetOpacity * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(widgetOpacity = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                     }
                 }
@@ -274,43 +298,61 @@ fun AdvancedSettingsScreen(
                         ColorSettingItem(
                             title = if (isEs) "Botón Logo 'mi' (Fondo)" else "'mi' Logo Button (Bg)",
                             description = if (isEs) "Color del círculo superior en la barra lateral" else "Top circle color in sidebar",
-                            currentColorHex = styleConfig.miButtonColor,
-                            onColorChange = { onUpdate(styleConfig.copy(miButtonColor = it)) }
+                            currentColorHex = currentStyle.miButtonColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(miButtonColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         ColorSettingItem(
                             title = if (isEs) "Texto Logo 'mi'" else "'mi' Logo Text",
                             description = if (isEs) "Color de las letras dentro del botón" else "Letter color inside the button",
-                            currentColorHex = styleConfig.miTextColor,
-                            onColorChange = { onUpdate(styleConfig.copy(miTextColor = it)) }
+                            currentColorHex = currentStyle.miTextColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(miTextColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         ColorSettingItem(
                             title = if (isEs) "Reloj / Hora" else "Clock / Time",
                             description = if (isEs) "Color de la hora digital en la barra lateral" else "Digital clock color in sidebar",
-                            currentColorHex = styleConfig.clockColor,
-                            onColorChange = { onUpdate(styleConfig.copy(clockColor = it)) }
+                            currentColorHex = currentStyle.clockColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(clockColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         ColorSettingItem(
                             title = if (isEs) "Batería (Icono y Porcentaje)" else "Battery (Icon & %)",
                             description = if (isEs) "Color del indicador de batería" else "Battery indicator color",
-                            currentColorHex = styleConfig.batteryColor,
-                            onColorChange = { onUpdate(styleConfig.copy(batteryColor = it)) }
+                            currentColorHex = currentStyle.batteryColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(batteryColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         ColorSettingItem(
                             title = if (isEs) "Texto 'Mensajes'" else "'Messages' Text",
                             description = if (isEs) "Color del contador de mensajes" else "Message counter text color",
-                            currentColorHex = styleConfig.messagesColor,
-                            onColorChange = { onUpdate(styleConfig.copy(messagesColor = it)) }
+                            currentColorHex = currentStyle.messagesColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(messagesColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         ColorSettingItem(
                             title = if (isEs) "Fecha y Día (Vista 1)" else "Date & Day (View 1)",
                             description = if (isEs) "Color del día y fecha en el triángulo" else "Day & date color in triangle",
-                            currentColorHex = styleConfig.dateColor,
-                            onColorChange = { onUpdate(styleConfig.copy(dateColor = it)) }
+                            currentColorHex = currentStyle.dateColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(dateColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                     }
                 }
@@ -335,16 +377,23 @@ fun AdvancedSettingsScreen(
                         SliderSettingItem(
                             title = if (isEs) "Opacidad de Barra Lateral" else "Sidebar Opacity",
                             description = if (isEs) "Transparencia del fondo cristalino" else "Frosted glass transparency",
-                            value = styleConfig.sidebarOpacity,
+                            value = currentStyle.sidebarOpacity,
                             valueRange = 0.10f..1.00f,
-                            displayValue = "${(styleConfig.sidebarOpacity * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(sidebarOpacity = it)) }
+                            displayValue = "${(currentStyle.sidebarOpacity * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(sidebarOpacity = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         ColorSettingItem(
                             title = if (isEs) "Color de Barra Lateral" else "Sidebar Color",
                             description = if (isEs) "Color base de la barra lateral" else "Sidebar base color",
-                            currentColorHex = styleConfig.sidebarColor,
-                            onColorChange = { onUpdate(styleConfig.copy(sidebarColor = it)) }
+                            currentColorHex = currentStyle.sidebarColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(sidebarColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         Text(
@@ -355,16 +404,23 @@ fun AdvancedSettingsScreen(
                         SliderSettingItem(
                             title = if (isEs) "Opacidad de Barra Diagonal" else "Diagonal Bar Opacity",
                             description = if (isEs) "Transparencia de la barra diagonal" else "Diagonal bar transparency",
-                            value = styleConfig.diagonalBarOpacity,
+                            value = currentStyle.diagonalBarOpacity,
                             valueRange = 0.10f..1.00f,
-                            displayValue = "${(styleConfig.diagonalBarOpacity * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(diagonalBarOpacity = it)) }
+                            displayValue = "${(currentStyle.diagonalBarOpacity * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(diagonalBarOpacity = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         ColorSettingItem(
                             title = if (isEs) "Color de Barra Diagonal" else "Diagonal Bar Color",
                             description = if (isEs) "Color base de la banda diagonal" else "Diagonal bar base color",
-                            currentColorHex = styleConfig.diagonalBarColor,
-                            onColorChange = { onUpdate(styleConfig.copy(diagonalBarColor = it)) }
+                            currentColorHex = currentStyle.diagonalBarColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(diagonalBarColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                     }
                 }
@@ -389,24 +445,35 @@ fun AdvancedSettingsScreen(
                         SliderSettingItem(
                             title = if (isEs) "Tamaño del Triángulo" else "Triangle Size",
                             description = if (isEs) "Proporción del triángulo respecto al área" else "Triangle proportion relative to area",
-                            value = styleConfig.triangleWidth,
+                            value = currentStyle.triangleWidth,
                             valueRange = 0.50f..1.00f,
-                            displayValue = "${(styleConfig.triangleWidth * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(triangleWidth = it)) }
+                            displayValue = "${(currentStyle.triangleWidth * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(triangleWidth = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         SliderSettingItem(
                             title = if (isEs) "Opacidad del Triángulo" else "Triangle Opacity",
                             description = if (isEs) "Transparencia de la forma triangular" else "Triangle shape transparency",
-                            value = styleConfig.triangleOpacity,
+                            value = currentStyle.triangleOpacity,
                             valueRange = 0.10f..1.00f,
-                            displayValue = "${(styleConfig.triangleOpacity * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(triangleOpacity = it)) }
+                            displayValue = "${(currentStyle.triangleOpacity * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(triangleOpacity = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         ColorSettingItem(
                             title = if (isEs) "Color de Acento del Triángulo" else "Triangle Accent Color",
                             description = if (isEs) "Color del triángulo e iconos diagonales" else "Color of triangle and diagonal icons",
-                            currentColorHex = styleConfig.triangleColor,
-                            onColorChange = { onUpdate(styleConfig.copy(triangleColor = it)) }
+                            currentColorHex = currentStyle.triangleColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(triangleColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         Text(
@@ -417,28 +484,41 @@ fun AdvancedSettingsScreen(
                         SliderSettingItem(
                             title = if (isEs) "Opacidad de Fondo" else "Background Opacity",
                             description = if (isEs) "Transparencia del cajón de aplicaciones" else "App drawer transparency",
-                            value = styleConfig.appDrawerBgOpacity,
+                            value = currentStyle.appDrawerBgOpacity,
                             valueRange = 0.00f..1.00f,
-                            displayValue = "${(styleConfig.appDrawerBgOpacity * 100).toInt()}%",
-                            onValueChange = { onUpdate(styleConfig.copy(appDrawerBgOpacity = it)) }
+                            displayValue = "${(currentStyle.appDrawerBgOpacity * 100).toInt()}%",
+                            onValueChange = { 
+                                currentStyle = currentStyle.copy(appDrawerBgOpacity = it)
+                                onUpdateTransient(currentStyle)
+                            },
+                            onValueChangeFinished = { onPersist(currentStyle) }
                         )
                         ColorSettingItem(
                             title = if (isEs) "Color de Fondo" else "Background Color",
                             description = if (isEs) "Color sólido del cajón de aplicaciones" else "Solid color of the app drawer",
-                            currentColorHex = styleConfig.appDrawerBgColor,
-                            onColorChange = { onUpdate(styleConfig.copy(appDrawerBgColor = it)) }
+                            currentColorHex = currentStyle.appDrawerBgColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(appDrawerBgColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         ColorSettingItem(
                             title = if (isEs) "Color de Texto (Nombres)" else "Text Color (App Names)",
                             description = if (isEs) "Color de las letras de las aplicaciones" else "App letters color",
-                            currentColorHex = styleConfig.appDrawerTextColor,
-                            onColorChange = { onUpdate(styleConfig.copy(appDrawerTextColor = it)) }
+                            currentColorHex = currentStyle.appDrawerTextColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(appDrawerTextColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                         ColorSettingItem(
                             title = if (isEs) "Color de Iconos Personalizados" else "Custom Icons Color",
                             description = if (isEs) "Aplica a los iconos predeterminados de la galería" else "Applies to default asset icons",
-                            currentColorHex = styleConfig.customIconColor,
-                            onColorChange = { onUpdate(styleConfig.copy(customIconColor = it)) }
+                            currentColorHex = currentStyle.customIconColor,
+                            onColorChange = { 
+                                currentStyle = currentStyle.copy(customIconColor = it)
+                                onPersist(currentStyle)
+                            }
                         )
                     }
                 }

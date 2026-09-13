@@ -154,10 +154,31 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     // Notificaciones no leídas en tiempo real (NotificationListenerService)
     val notificationCount: StateFlow<Int> = NotificationMonitorService.notificationCount
 
+    private val packageReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            refreshInstalledApps()
+        }
+    }
+
     init {
-        // Precarga de aplicaciones instaladas en hilo secundario para evitar bloqueos al abrir el drawer
+        // Precarga de aplicaciones instaladas en hilo secundario y escucha de cambios de paquetes
+        refreshInstalledApps()
+        try {
+            val filter = android.content.IntentFilter().apply {
+                addAction(Intent.ACTION_PACKAGE_ADDED)
+                addAction(Intent.ACTION_PACKAGE_REMOVED)
+                addAction(Intent.ACTION_PACKAGE_REPLACED)
+                addDataScheme("package")
+            }
+            application.registerReceiver(packageReceiver, filter)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun refreshInstalledApps() {
         viewModelScope.launch(Dispatchers.IO) {
-            val apps = getInstalledApps(application)
+            val apps = getInstalledApps(getApplication())
             val stateIcons = _state.value.customAppIcons
             val mappedApps = apps.map { app ->
                 if (stateIcons.containsKey(app.packageName)) {
@@ -165,7 +186,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 } else app
             }
             _installedApps.value = mappedApps
-            autoCategorizeApps(application, mappedApps)
+            autoCategorizeApps(getApplication(), mappedApps)
         }
     }
 
@@ -194,16 +215,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        try {
+            getApplication<Application>().unregisterReceiver(packageReceiver)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
 
     private fun loadState(): LauncherState {
         val json = prefs.getString("launcher_state", null)
+        var state = LauncherState()
         if (json != null) {
             try {
                 val loaded = gson.fromJson(json, LauncherState::class.java)
                 if (loaded != null) {
-                    return loaded.copy(
+                    state = loaded.copy(
                         styleConfig = loaded.styleConfig ?: AdvancedStyleConfig(),
                         viewConfigs = loaded.viewConfigs ?: listOf(
                             ViewConfig(quote = "Dueño de mi propio destino"),
@@ -217,7 +244,19 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 e.printStackTrace()
             }
         }
-        return LauncherState()
+        // Carga desacoplada de estilo si existe configuración dedicada
+        val styleJson = prefs.getString("launcher_style_config", null)
+        if (styleJson != null) {
+            try {
+                val loadedStyle = gson.fromJson(styleJson, AdvancedStyleConfig::class.java)
+                if (loadedStyle != null) {
+                    state = state.copy(styleConfig = loadedStyle)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return state
     }
 
     private fun saveState(newState: LauncherState) {
@@ -237,12 +276,35 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /**
+     * Actualización visual inmediata en memoria sin I/O en disco durante el arrastre de sliders.
+     */
+    fun updateStyleConfigTransient(newConfig: AdvancedStyleConfig) {
+        _state.update { it.copy(styleConfig = newConfig) }
+    }
+
+    /**
+     * Persistencia desacoplada: solo serializa y guarda el estilo al terminar el gesto o cambiar valores discretos.
+     */
+    fun persistStyleConfig(newConfig: AdvancedStyleConfig) {
+        _state.update { it.copy(styleConfig = newConfig) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val json = gson.toJson(newConfig)
+                prefs.edit().putString("launcher_style_config", json).apply()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun updateStyleConfig(newConfig: AdvancedStyleConfig) {
-        updateState { it.copy(styleConfig = newConfig) }
+        persistStyleConfig(newConfig)
     }
 
     fun resetStyleConfig() {
-        updateState { it.copy(styleConfig = AdvancedStyleConfig()) }
+        val defaultStyle = AdvancedStyleConfig()
+        persistStyleConfig(defaultStyle)
     }
 
     fun setLanguage(lang: String) {

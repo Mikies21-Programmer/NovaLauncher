@@ -38,6 +38,9 @@ import com.daybreak.animelauncher.getAssetImages
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.platform.LocalViewConfiguration
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDrawerScreen(
@@ -59,6 +62,8 @@ fun AppDrawerScreen(
     var newCategoryName by remember { mutableStateOf("") }
     
     val context = LocalContext.current
+    val viewConfiguration = LocalViewConfiguration.current
+    val touchSlop = viewConfiguration.touchSlop
 
     // Prioridad de botón Back dentro del App Drawer:
     // Si hay un diálogo o menú contextual abierto, lo cierra; si no, cierra el drawer.
@@ -101,7 +106,22 @@ fun AppDrawerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(style.appDrawerBgColor.parseColorSafe().copy(alpha = style.appDrawerBgOpacity))
-            .clickable(onClick = onClose) // Click outside to close (if not full screen, but it is)
+            .pointerInput(Unit) {
+                var totalDragX = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { totalDragX = 0f },
+                    onDragEnd = { totalDragX = 0f },
+                    onDragCancel = { totalDragX = 0f }
+                ) { change, dragAmount ->
+                    totalDragX += dragAmount
+                    if (kotlin.math.abs(totalDragX) > touchSlop * 2.5f) {
+                        change.consume()
+                        onClose()
+                        totalDragX = 0f
+                    }
+                }
+            }
+            .clickable(onClick = onClose) // Click outside to close
     ) {
         Column(
             modifier = Modifier

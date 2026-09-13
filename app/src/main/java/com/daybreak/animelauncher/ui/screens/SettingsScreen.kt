@@ -115,7 +115,8 @@ fun SettingsScreen(
             styleConfig = state.styleConfig,
             backgroundUri = firstScreenUri,
             isEs = isEs,
-            onUpdate = { viewModel.updateStyleConfig(it) },
+            onUpdateTransient = { viewModel.updateStyleConfigTransient(it) },
+            onPersist = { viewModel.persistStyleConfig(it) },
             onReset = { viewModel.resetStyleConfig() },
             onBack = { showAdvancedSettings = false }
         )

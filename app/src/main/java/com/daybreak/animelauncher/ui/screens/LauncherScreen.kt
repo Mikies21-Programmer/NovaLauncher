@@ -67,17 +67,44 @@ fun LauncherScreen(
     // Native Android AppWidgetHost (HOST_ID = 1024) managed by ViewModel
     val appWidgetHost = viewModel.appWidgetHost
 
-    var showLongPressMenu by remember { mutableStateOf(false) }
-    var showBackgroundSelection by remember { mutableStateOf(false) }
-    var showAppDrawer by remember { mutableStateOf(false) }
-    
-    val installedApps by viewModel.installedApps.collectAsState()
-    var showWidgetPickerDialog by remember { mutableStateOf(false) }
+    var navState by remember { mutableStateOf<LauncherNavState>(LauncherNavState.Home) }
     var longPressedPageIndex by remember { mutableStateOf(0) }
     var allocatedWidgetId by remember { mutableStateOf<Int?>(null) }
+    val installedApps by viewModel.installedApps.collectAsState()
 
     val pagerState = rememberPagerState(pageCount = { state.viewCount })
     val coroutineScope = rememberCoroutineScope()
+
+    fun handleBackNavigation(): Boolean {
+        return when (navState) {
+            is LauncherNavState.InDrawer -> {
+                navState = LauncherNavState.Home
+                true
+            }
+            is LauncherNavState.WidgetPicker -> {
+                navState = LauncherNavState.Home
+                true
+            }
+            is LauncherNavState.BackgroundSelection -> {
+                navState = LauncherNavState.Home
+                true
+            }
+            is LauncherNavState.LongPressMenu -> {
+                navState = LauncherNavState.Home
+                true
+            }
+            LauncherNavState.Home -> {
+                if (pagerState.currentPage != 0) {
+                    coroutineScope.launch {
+                        pagerState.animateScrollToPage(0)
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
 
     // Gestión estricta del botón Back según prioridad:
     // 1. Cerrar diálogo / menú
@@ -85,19 +112,7 @@ fun LauncherScreen(
     // 3. Regresar a pantalla principal (página 0)
     // 4. Permanecer en Home consumiendo el evento sin cerrar el launcher
     androidx.activity.compose.BackHandler(enabled = true) {
-        if (showWidgetPickerDialog) {
-            showWidgetPickerDialog = false
-        } else if (showBackgroundSelection) {
-            showBackgroundSelection = false
-        } else if (showLongPressMenu) {
-            showLongPressMenu = false
-        } else if (showAppDrawer) {
-            showAppDrawer = false
-        } else if (pagerState.currentPage != 0) {
-            coroutineScope.launch {
-                pagerState.animateScrollToPage(0)
-            }
-        }
+        handleBackNavigation()
     }
 
     // Sincronizar el gestor de fondos de video con la página activa
@@ -204,6 +219,7 @@ fun LauncherScreen(
     ) {
         HorizontalPager(
             state = pagerState,
+            userScrollEnabled = (navState == LauncherNavState.Home),
             beyondViewportPageCount = 1,
             key = { it },
             modifier = Modifier
@@ -234,7 +250,7 @@ fun LauncherScreen(
                                         isTracking = false
                                     } else if (kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.2f) {
                                         if (totalY < -80f) {
-                                            showAppDrawer = true
+                                            navState = LauncherNavState.InDrawer.Main
                                             isTracking = false
                                         } else if (totalY > 80f && state.gesturesConfig.swipeDownForNotifications) {
                                             expandStatusBar(context)
@@ -260,13 +276,11 @@ fun LauncherScreen(
                 alpha = (1f - pageOffset * 0.35f).coerceIn(0.65f, 1f)
             }
 
-
-
         val viewConfig = state.viewConfigs.getOrNull(page) ?: state.viewConfigs.last()
         
         val onLongPressAction = {
             longPressedPageIndex = page
-            showLongPressMenu = true
+            navState = LauncherNavState.LongPressMenu(page)
         }
 
         val onDoubleTapAction = {
@@ -301,7 +315,7 @@ fun LauncherScreen(
                 viewModel = viewModel,
                 viewIndex = page,
                 language = state.language,
-                showUI = !showAppDrawer,
+                showUI = (navState !is LauncherNavState.InDrawer),
                 modifier = modifier
             )
         } else {
@@ -314,13 +328,13 @@ fun LauncherScreen(
                 viewModel = viewModel,
                 viewIndex = page,
                 language = state.language,
-                showUI = !showAppDrawer,
+                showUI = (navState !is LauncherNavState.InDrawer),
                 modifier = modifier
             )
         }
         }
 
-        // 1. Left Edge -> Back
+        // 1. Left Edge -> Back (Lógica interna independiente de accesibilidad)
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -333,14 +347,14 @@ fun LauncherScreen(
                     ) { _, dragAmount ->
                         totalDrag += dragAmount
                         if (totalDrag > 50f && state.gesturesConfig.edgeSwipeToBack) {
-                            com.daybreak.animelauncher.LauncherAccessibilityService.goBack()
+                            handleBackNavigation()
                             totalDrag = 0f
                         }
                     }
                 }
         )
 
-        // 2. Right Edge -> Back
+        // 2. Right Edge -> Back (Lógica interna independiente de accesibilidad)
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -353,14 +367,14 @@ fun LauncherScreen(
                     ) { _, dragAmount ->
                         totalDrag += dragAmount
                         if (totalDrag < -50f && state.gesturesConfig.edgeSwipeToBack) {
-                            com.daybreak.animelauncher.LauncherAccessibilityService.goBack()
+                            handleBackNavigation()
                             totalDrag = 0f
                         }
                     }
                 }
         )
 
-        // 3. Bottom Edge -> Recents
+        // 3. Bottom Edge -> Recents (Acción global del sistema con validación de accesibilidad)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -373,7 +387,14 @@ fun LauncherScreen(
                     ) { _, dragAmount ->
                         totalDrag += dragAmount
                         if (totalDrag < -50f && state.gesturesConfig.bottomSwipeToRecents) {
-                            com.daybreak.animelauncher.LauncherAccessibilityService.openRecents()
+                            val opened = com.daybreak.animelauncher.LauncherAccessibilityService.openRecents()
+                            if (!opened) {
+                                Toast.makeText(
+                                    context,
+                                    if (state.language == "es") "Activa el servicio de accesibilidad de NovaLauncher para ver Recientes" else "Enable NovaLauncher accessibility service to view Recents",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                             totalDrag = 0f
                         }
                     }
@@ -382,9 +403,9 @@ fun LauncherScreen(
     }
 
     // Long Press Classic Launcher Menu (Fondos, Widgets, Configuración)
-    if (showLongPressMenu) {
+    if (navState is LauncherNavState.LongPressMenu) {
         val isEs = state.language == "es"
-        Dialog(onDismissRequest = { showLongPressMenu = false }) {
+        Dialog(onDismissRequest = { navState = LauncherNavState.Home }) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = Color(0xFF08080C).copy(alpha = 0.96f),
@@ -415,8 +436,7 @@ fun LauncherScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.White.copy(alpha = 0.08f))
                             .clickable {
-                                showLongPressMenu = false
-                                showBackgroundSelection = true
+                                navState = LauncherNavState.BackgroundSelection(longPressedPageIndex)
                             }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -436,8 +456,7 @@ fun LauncherScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.White.copy(alpha = 0.08f))
                             .clickable {
-                                showLongPressMenu = false
-                                showWidgetPickerDialog = true
+                                navState = LauncherNavState.WidgetPicker(longPressedPageIndex)
                             }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -457,7 +476,7 @@ fun LauncherScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.White.copy(alpha = 0.08f))
                             .clickable {
-                                showLongPressMenu = false
+                                navState = LauncherNavState.Home
                                 onNavigateToSettings()
                             }
                             .padding(16.dp),
@@ -472,7 +491,7 @@ fun LauncherScreen(
                     }
 
                     TextButton(
-                        onClick = { showLongPressMenu = false },
+                        onClick = { navState = LauncherNavState.Home },
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Text(if (isEs) "Cancelar" else "Cancel", color = Color(0xFF00F0FF), fontWeight = FontWeight.Medium)
@@ -483,9 +502,9 @@ fun LauncherScreen(
     }
 
     // Custom In-Launcher Widget Picker Dialog (Sin salir al launcher antiguo)
-    if (showWidgetPickerDialog) {
+    if (navState is LauncherNavState.WidgetPicker) {
         val isEs = state.language == "es"
-        Dialog(onDismissRequest = { showWidgetPickerDialog = false }) {
+        Dialog(onDismissRequest = { navState = LauncherNavState.Home }) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = Color(0xFF08080C).copy(alpha = 0.96f),
@@ -549,7 +568,7 @@ fun LauncherScreen(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(Color.White.copy(alpha = 0.08f))
                                     .clickable {
-                                        showWidgetPickerDialog = false
+                                        navState = LauncherNavState.Home
                                         try {
                                             val widgetId = appWidgetHost.allocateAppWidgetId()
                                             allocatedWidgetId = widgetId
@@ -615,7 +634,7 @@ fun LauncherScreen(
                     }
 
                     Button(
-                        onClick = { showWidgetPickerDialog = false },
+                        onClick = { navState = LauncherNavState.Home },
                         modifier = Modifier.align(Alignment.End),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF), contentColor = Color.Black),
                         shape = RoundedCornerShape(12.dp)
@@ -627,29 +646,29 @@ fun LauncherScreen(
         }
     }
 
-    if (showBackgroundSelection) {
+    if (navState is LauncherNavState.BackgroundSelection) {
         val isEs = state.language == "es"
         BackgroundSelectionScreen(
             isEs = isEs,
             onThemeSelected = { theme ->
                 viewModel.updateBackgroundUri(longPressedPageIndex, theme.backgroundUri)
                 viewModel.updateStyleConfig(theme.styleConfig)
-                showBackgroundSelection = false
+                navState = LauncherNavState.Home
             },
             onImageSelected = { uri ->
                 viewModel.updateBackgroundUri(longPressedPageIndex, uri)
-                showBackgroundSelection = false
+                navState = LauncherNavState.Home
             },
             onCustomImageRequest = {
-                showBackgroundSelection = false
+                navState = LauncherNavState.Home
                 pickMediaLauncher.launch(arrayOf("image/*", "video/*"))
             },
-            onBack = { showBackgroundSelection = false }
+            onBack = { navState = LauncherNavState.Home }
         )
     }
 
     AnimatedVisibility(
-        visible = showAppDrawer,
+        visible = navState is LauncherNavState.InDrawer,
         enter = slideInVertically(
             initialOffsetY = { it / 3 },
             animationSpec = tween(220, easing = FastOutSlowInEasing)
@@ -664,7 +683,7 @@ fun LauncherScreen(
             installedApps = installedApps,
             categories = state.drawerConfig.categories,
             isEs = state.language == "es",
-            onClose = { showAppDrawer = false }
+            onClose = { navState = LauncherNavState.Home }
         )
     }
 }

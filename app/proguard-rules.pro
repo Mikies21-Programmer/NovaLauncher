@@ -3,7 +3,13 @@
 -keepattributes Signature
 
 # Gson data classes y modelos de datos
--keepclassmembers class com.daybreak.animelauncher.** { <fields>; }
+-keepclassmembers class com.daybreak.animelauncher.AppShortcut { <fields>; }
+-keepclassmembers class com.daybreak.animelauncher.ViewConfig { <fields>; }
+-keepclassmembers class com.daybreak.animelauncher.AdvancedStyleConfig { <fields>; }
+-keepclassmembers class com.daybreak.animelauncher.DrawerCategory { <fields>; }
+-keepclassmembers class com.daybreak.animelauncher.DrawerConfig { <fields>; }
+-keepclassmembers class com.daybreak.animelauncher.GesturesConfig { <fields>; }
+-keepclassmembers class com.daybreak.animelauncher.LauncherState { <fields>; }
 -keep class com.google.gson.** { *; }
 -keep class com.google.gson.reflect.TypeToken
 -keep class * implements com.google.gson.TypeAdapterFactory

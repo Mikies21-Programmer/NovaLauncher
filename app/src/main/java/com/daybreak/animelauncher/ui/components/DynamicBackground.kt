@@ -5,6 +5,7 @@ import androidx.annotation.RawRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -19,21 +20,26 @@ fun DynamicBackground(
     pageIndex: Int = 0
 ) {
     val context = LocalContext.current
-    val isImage = if (!backgroundUri.isNullOrBlank()) {
-        try {
-            val uri = Uri.parse(backgroundUri)
-            val type = context.contentResolver.getType(uri)
-            if (type != null) {
-                type.startsWith("image/")
-            } else {
-                val lower = backgroundUri.lowercase()
-                lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".gif") || lower.endsWith(".bmp")
+
+    // Optimización: la llamada a ContentResolver.getType() se aísla en remember(backgroundUri)
+    // para no ejecutar operaciones IPC/IO en el hilo principal durante recomposiciones
+    val isImage = remember(backgroundUri) {
+        if (!backgroundUri.isNullOrBlank()) {
+            try {
+                val uri = Uri.parse(backgroundUri)
+                val type = context.contentResolver.getType(uri)
+                if (type != null) {
+                    type.startsWith("image/")
+                } else {
+                    val lower = backgroundUri.lowercase()
+                    lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".gif") || lower.endsWith(".bmp")
+                }
+            } catch (e: Exception) {
+                false
             }
-        } catch (e: Exception) {
+        } else {
             false
         }
-    } else {
-        false
     }
 
     if (isImage && !backgroundUri.isNullOrBlank()) {
@@ -59,4 +65,3 @@ fun DynamicBackground(
         )
     }
 }
-
