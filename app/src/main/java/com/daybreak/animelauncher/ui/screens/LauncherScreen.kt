@@ -1,0 +1,565 @@
+package com.daybreak.animelauncher.ui.screens
+
+import android.app.Activity
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Widgets
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.daybreak.animelauncher.LauncherViewModel
+import kotlin.math.absoluteValue
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LauncherScreen(
+    viewModel: LauncherViewModel,
+    onNavigateToSettings: () -> Unit
+) {
+    val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    
+    // Native Android AppWidgetHost (HOST_ID = 1024) managed by ViewModel
+    val appWidgetHost = viewModel.appWidgetHost
+
+    var showLongPressMenu by remember { mutableStateOf(false) }
+    var showBackgroundSelection by remember { mutableStateOf(false) }
+    var showAppDrawer by remember { mutableStateOf(false) }
+    
+    val installedApps by viewModel.installedApps.collectAsState()
+    var showWidgetPickerDialog by remember { mutableStateOf(false) }
+    var longPressedPageIndex by remember { mutableStateOf(0) }
+    var allocatedWidgetId by remember { mutableStateOf<Int?>(null) }
+
+    // Launcher for Widget Configuration screen (e.g. city picker for weather widget)
+    val configureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && allocatedWidgetId != null) {
+            viewModel.addNativeWidget(longPressedPageIndex, allocatedWidgetId!!)
+        } else if (allocatedWidgetId != null) {
+            try { appWidgetHost.deleteAppWidgetId(allocatedWidgetId!!) } catch (e: Exception) {}
+        }
+    }
+
+    // Launcher for ACTION_APPWIDGET_BIND (asks user permission to bind widget if not already granted)
+    val bindWidgetLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && allocatedWidgetId != null) {
+            val widgetId = allocatedWidgetId!!
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val info = appWidgetManager.getAppWidgetInfo(widgetId)
+            if (info?.configure != null) {
+                val configureIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE).apply {
+                    component = info.configure
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                }
+                try {
+                    configureLauncher.launch(configureIntent)
+                } catch (e: Exception) {
+                    viewModel.addNativeWidget(longPressedPageIndex, widgetId)
+                }
+            } else {
+                viewModel.addNativeWidget(longPressedPageIndex, widgetId)
+            }
+        } else if (allocatedWidgetId != null) {
+            try { appWidgetHost.deleteAppWidgetId(allocatedWidgetId!!) } catch (e: Exception) {}
+        }
+    }
+
+    // Launcher for Gallery Wallpaper picker
+    val pickMediaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            viewModel.updateBackgroundUri(longPressedPageIndex, uri.toString())
+        }
+    }
+
+    val pagerState = rememberPagerState(pageCount = { state.viewCount })
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        HorizontalPager(
+        state = pagerState,
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        var event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        while (!event.changes.any { it.pressed }) {
+                            event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        }
+                        var totalY = 0f
+                        var isTracking = true
+                        while (isTracking) {
+                            event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull()
+                            if (change == null || !change.pressed) {
+                                isTracking = false
+                            } else {
+                                val deltaY = change.position.y - change.previousPosition.y
+                                totalY += deltaY
+                                if (totalY < -50f) {
+                                    showAppDrawer = true
+                                    isTracking = false
+                                } else if (totalY > 50f && state.gesturesConfig.swipeDownForNotifications) {
+                                    expandStatusBar(context)
+                                    isTracking = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (state.gesturesConfig.doubleTapToSleep) {
+                            com.daybreak.animelauncher.LauncherAccessibilityService.lockScreen()
+                        }
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                detectTransformGestures { _, _, zoom, _ ->
+                    if (state.gesturesConfig.pinchInForSettings && zoom < 0.9f) {
+                        onNavigateToSettings()
+                    }
+                }
+            }
+    ) { page ->
+        val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+        val alphaOffset = (1f - pageOffset.coerceIn(0f, 1f))
+        
+        val modifier = Modifier.graphicsLayer {
+            alpha = alphaOffset
+        }
+
+        val viewConfig = state.viewConfigs.getOrNull(page) ?: state.viewConfigs.last()
+        
+        val onLongPressAction = {
+            longPressedPageIndex = page
+            showLongPressMenu = true
+        }
+
+        val isEs = state.language == "es"
+        if (page % 2 == 0) {
+            ViewOne(
+                config = viewConfig,
+                onSettingsClick = onNavigateToSettings,
+                onLongPress = onLongPressAction,
+                appWidgetHost = appWidgetHost,
+                viewModel = viewModel,
+                viewIndex = page,
+                language = state.language,
+                showUI = !showAppDrawer,
+                modifier = modifier
+            )
+        } else {
+            ViewTwo(
+                config = viewConfig,
+                onSettingsClick = onNavigateToSettings,
+                onLongPress = onLongPressAction,
+                appWidgetHost = appWidgetHost,
+                viewModel = viewModel,
+                viewIndex = page,
+                language = state.language,
+                showUI = !showAppDrawer,
+                modifier = modifier
+            )
+        }
+        }
+
+        // 1. Left Edge -> Back
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .width(24.dp)
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { totalDrag = 0f }
+                    ) { _, dragAmount ->
+                        totalDrag += dragAmount
+                        if (totalDrag > 50f && state.gesturesConfig.edgeSwipeToBack) {
+                            com.daybreak.animelauncher.LauncherAccessibilityService.goBack()
+                            totalDrag = 0f
+                        }
+                    }
+                }
+        )
+
+        // 2. Right Edge -> Back
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(24.dp)
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { totalDrag = 0f }
+                    ) { _, dragAmount ->
+                        totalDrag += dragAmount
+                        if (totalDrag < -50f && state.gesturesConfig.edgeSwipeToBack) {
+                            com.daybreak.animelauncher.LauncherAccessibilityService.goBack()
+                            totalDrag = 0f
+                        }
+                    }
+                }
+        )
+
+        // 3. Bottom Edge -> Recents
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(40.dp)
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    detectVerticalDragGestures(
+                        onDragStart = { totalDrag = 0f }
+                    ) { _, dragAmount ->
+                        totalDrag += dragAmount
+                        if (totalDrag < -50f && state.gesturesConfig.bottomSwipeToRecents) {
+                            com.daybreak.animelauncher.LauncherAccessibilityService.openRecents()
+                            totalDrag = 0f
+                        }
+                    }
+                }
+        )
+    }
+
+    // Long Press Classic Launcher Menu (Fondos, Widgets, Configuración)
+    if (showLongPressMenu) {
+        val isEs = state.language == "es"
+        Dialog(onDismissRequest = { showLongPressMenu = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF08080C).copy(alpha = 0.96f),
+                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.4f)),
+                tonalElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (isEs) "Opciones de Pantalla ${longPressedPageIndex + 1}" else "Screen ${longPressedPageIndex + 1} Options",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF00F0FF), // Cian Neón fosforecente único
+                        fontWeight = FontWeight.Normal
+                    )
+
+                    HorizontalDivider(color = Color(0xFF00F0FF).copy(alpha = 0.3f))
+
+                    // 1. Fondos
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .clickable {
+                                showLongPressMenu = false
+                                showBackgroundSelection = true
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(Icons.Outlined.Image, contentDescription = "Fondos", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Column {
+                            Text(if (isEs) "Fondos de pantalla" else "Wallpapers & Videos", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
+                            Text(if (isEs) "Elige video o foto de tu galería" else "Choose video or photo from gallery", color = Color.LightGray, fontSize = 12.sp)
+                        }
+                    }
+
+                    // 2. Widgets (Abre nuestro selector propio integrado)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .clickable {
+                                showLongPressMenu = false
+                                showWidgetPickerDialog = true
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(Icons.Outlined.Apps, contentDescription = "Widgets", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Column {
+                            Text(if (isEs) "Widgets del sistema" else "System Widgets", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
+                            Text(if (isEs) "WhatsApp, Spotify, Fotos, Google Maps..." else "WhatsApp, Spotify, Photos, Google Maps...", color = Color.LightGray, fontSize = 12.sp)
+                        }
+                    }
+
+                    // 3. Configuración
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .clickable {
+                                showLongPressMenu = false
+                                onNavigateToSettings()
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Ajustes", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Column {
+                            Text(if (isEs) "Configuración de pantalla" else "Screen Settings", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
+                            Text(if (isEs) "Administrar pantallas y accesos rápidos" else "Manage screens and shortcuts", color = Color.LightGray, fontSize = 12.sp)
+                        }
+                    }
+
+                    TextButton(
+                        onClick = { showLongPressMenu = false },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(if (isEs) "Cancelar" else "Cancel", color = Color(0xFF00F0FF), fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    }
+
+    // Custom In-Launcher Widget Picker Dialog (Sin salir al launcher antiguo)
+    if (showWidgetPickerDialog) {
+        val isEs = state.language == "es"
+        Dialog(onDismissRequest = { showWidgetPickerDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF08080C).copy(alpha = 0.96f),
+                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.4f)),
+                tonalElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.85f)
+            ) {
+                val appWidgetManager = remember { AppWidgetManager.getInstance(context) }
+                val installedProviders = remember {
+                    try {
+                        appWidgetManager.installedProviders.sortedBy { it.loadLabel(context.packageManager) }
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                }
+                var widgetSearchQuery by remember { mutableStateOf("") }
+                val filteredProviders = remember(installedProviders, widgetSearchQuery) {
+                    if (widgetSearchQuery.isBlank()) installedProviders
+                    else installedProviders.filter { 
+                        it.loadLabel(context.packageManager).contains(widgetSearchQuery, ignoreCase = true) 
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = if (isEs) "Selecciona un Widget" else "Select a Widget",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF00F0FF), // Cian Neón fosforecente único
+                        fontWeight = FontWeight.Normal
+                    )
+
+                    OutlinedTextField(
+                        value = widgetSearchQuery,
+                        onValueChange = { widgetSearchQuery = it },
+                        label = { Text(if (isEs) "Buscar widget (ej. WhatsApp, Clima...)" else "Search widget (e.g. WhatsApp, Weather...)", color = Color.LightGray) },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = Color.LightGray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF00F0FF), // Cian Neón fosforecente único
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            cursorColor = Color(0xFF00F0FF)
+                        ),
+                        singleLine = true
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(filteredProviders) { providerInfo ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White.copy(alpha = 0.08f))
+                                    .clickable {
+                                        showWidgetPickerDialog = false
+                                        try {
+                                            val widgetId = appWidgetHost.allocateAppWidgetId()
+                                            allocatedWidgetId = widgetId
+                                            val bound = try {
+                                                appWidgetManager.bindAppWidgetIdIfAllowed(widgetId, providerInfo.provider)
+                                            } catch (e: Exception) {
+                                                false
+                                            }
+
+                                            if (bound) {
+                                                if (providerInfo.configure != null) {
+                                                    val configureIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE).apply {
+                                                        component = providerInfo.configure
+                                                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                                                    }
+                                                    try {
+                                                        configureLauncher.launch(configureIntent)
+                                                    } catch (e: Exception) {
+                                                        viewModel.addNativeWidget(longPressedPageIndex, widgetId)
+                                                    }
+                                                } else {
+                                                    viewModel.addNativeWidget(longPressedPageIndex, widgetId)
+                                                }
+                                            } else {
+                                                val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+                                                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                                                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, providerInfo.provider)
+                                                }
+                                                try {
+                                                    bindWidgetLauncher.launch(bindIntent)
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, if (isEs) "Permiso requerido por el sistema" else "System permission required", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    }
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                val pm = context.packageManager
+                                val label = remember(providerInfo) { providerInfo.loadLabel(pm) }
+                                val appName = remember(providerInfo) {
+                                    try { pm.getApplicationLabel(pm.getApplicationInfo(providerInfo.provider.packageName, 0)).toString() } catch (e: Exception) { "" }
+                                }
+
+                                Icon(
+                                    imageVector = Icons.Outlined.Widgets,
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F0FF),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = label, color = Color.White, fontWeight = FontWeight.Normal, fontSize = 15.sp)
+                                    if (appName.isNotEmpty() && appName != label) {
+                                        Text(text = appName, color = Color.LightGray, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = { showWidgetPickerDialog = false },
+                        modifier = Modifier.align(Alignment.End),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF), contentColor = Color.Black),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(if (isEs) "Cancelar" else "Cancel", fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showBackgroundSelection) {
+        val isEs = state.language == "es"
+        BackgroundSelectionScreen(
+            isEs = isEs,
+            onThemeSelected = { theme ->
+                viewModel.updateBackgroundUri(longPressedPageIndex, theme.backgroundUri)
+                viewModel.updateStyleConfig(theme.styleConfig)
+                showBackgroundSelection = false
+            },
+            onImageSelected = { uri ->
+                viewModel.updateBackgroundUri(longPressedPageIndex, uri)
+                showBackgroundSelection = false
+            },
+            onCustomImageRequest = {
+                showBackgroundSelection = false
+                pickMediaLauncher.launch(arrayOf("image/*", "video/*"))
+            },
+            onBack = { showBackgroundSelection = false }
+        )
+    }
+
+    if (showAppDrawer) {
+        AppDrawerScreen(
+            viewModel = viewModel,
+            installedApps = installedApps,
+            categories = state.drawerConfig.categories,
+            isEs = state.language == "es",
+            onClose = { showAppDrawer = false }
+        )
+    }
+}
+
+fun expandStatusBar(context: Context) {
+    try {
+        val statusBarService = context.getSystemService("statusbar")
+        val statusBarManager = Class.forName("android.app.StatusBarManager")
+        val expand = statusBarManager.getMethod("expandNotificationsPanel")
+        expand.invoke(statusBarService)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}

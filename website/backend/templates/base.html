@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AuraLauncher{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="background-glow">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="logo">
+                <i class="ph-fill ph-planet"></i> AuraLauncher
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}" class="nav-link">Inicio</a>
+                <a href="{{ url_for('features') }}" class="nav-link">Características</a>
+                <a href="{{ url_for('privacy') }}" class="nav-link">Políticas</a>
+                <a href="{{ url_for('download') }}" class="btn-primary-small">Descargar</a>
+            </div>
+            <button class="mobile-menu-btn">
+                <i class="ph ph-list"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <h3><i class="ph-fill ph-planet"></i> AuraLauncher</h3>
+                <p>Redefiniendo tu experiencia Android.</p>
+            </div>
+            <div class="footer-links">
+                <a href="{{ url_for('home') }}">Inicio</a>
+                <a href="{{ url_for('features') }}">Características</a>
+                <a href="{{ url_for('privacy') }}">Políticas de Privacidad</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 AuraLauncher / CalmAssistant. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

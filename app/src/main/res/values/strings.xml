@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">NOVALAUNCHER</string>
+    <string name="accessibility_description">Necesario para apagar la pantalla con doble toque en Anime Launcher.</string>
+</resources>

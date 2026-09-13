@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% block title %}Legal y Privacidad - AuraLauncher{% endblock %}
+
+{% block head %}
+<style>
+    /* Estilos específicos para la página de privacidad que se integran con el tema global */
+    .legal-nav {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .legal-tab {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        color: var(--text-muted);
+        padding: 10px 20px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+    
+    .legal-tab:hover, .legal-tab.active {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--accent-cyan);
+        box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    }
+    
+    .legal-content {
+        display: none;
+        animation: fadeIn 0.4s ease forwards;
+    }
+    
+    .legal-content.active {
+        display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .legal-section {
+        margin-bottom: 2.5rem;
+    }
+    
+    .legal-section h1 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .legal-section h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: var(--accent-purple);
+    }
+    
+    .legal-section p {
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+    
+    .legal-section ul {
+        color: var(--text-muted);
+        margin-left: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .legal-section li {
+        margin-bottom: 0.5rem;
+    }
+    
+    .glass-card-content {
+        padding: 30px;
+        margin-bottom: 20px;
+        text-align: left;
+    }
+    
+    .permission-badge {
+        display: inline-block;
+        background: rgba(0, 240, 255, 0.1);
+        color: var(--accent-cyan);
+        padding: 0.3rem 0.8rem;
+        border-radius: 100px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        font-family: monospace;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(0, 240, 255, 0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <h2>Centro <span class="gradient-text">Legal y de Privacidad</span></h2>
+    <p>Transparencia total sobre tus datos y permisos.</p>
+</section>
+
+<div class="legal-nav">
+    <div class="legal-tab active" onclick="switchLegalTab('privacy', this)">Política de Privacidad</div>
+    <div class="legal-tab" onclick="switchLegalTab('permissions', this)">Permisos de la App</div>
+    <div class="legal-tab" onclick="switchLegalTab('terms', this)">Términos de Servicio</div>
+</div>
+
+<!-- Política de Privacidad -->
+<div id="privacy" class="legal-content active legal-section">
+    <h1>Política de <span class="gradient-text">Privacidad</span></h1>
+    <p style="text-align: center;"><strong>Última actualización: Agosto de 2026</strong></p>
+    
+    <div class="glass-panel glass-card-content">
+        <h2>1. Introducción</h2>
+        <p>En <strong>AuraLauncher</strong> nos tomamos tu privacidad muy en serio. Esta política explica cómo manejamos tu información al utilizar nuestra aplicación de inicio (launcher) para Android.</p>
+        
+        <h2>2. Recopilación de Datos</h2>
+        <p><strong style="color: white;">No recopilamos, transmitimos, ni almacenamos datos personales en servidores externos.</strong></p>
+        <p>Nuestra filosofía es que tu dispositivo es tuyo. Toda la configuración visual, preferencias de temas, disposición de aplicaciones e imágenes seleccionadas como fondo de pantalla se procesan y almacenan única y exclusivamente de manera local en tu dispositivo móvil mediante preferencias compartidas (SharedPreferences).</p>
+        
+        <h2>3. Uso de la Información</h2>
+        <p>La aplicación utiliza información del sistema operativo estrictamente para brindar sus funcionalidades principales:</p>
+        <ul>
+            <li>Mostrar la lista de aplicaciones instaladas.</li>
+            <li>Renderizar widgets en el escritorio.</li>
+            <li>Acceder a los medios para aplicar fondos de pantalla.</li>
+        </ul>
+
+        <h2>4. Terceros</h2>
+        <p>AuraLauncher no incluye SDKs de rastreo (trackers), anuncios ni servicios de analíticas de terceros. Es una aplicación independiente y libre de recolección de métricas.</p>
+    </div>
+</div>
+
+<!-- Permisos de la App -->
+<div id="permissions" class="legal-content legal-section">
+    <h1>Permisos de la <span class="gradient-text">Aplicación</span></h1>
+    <p style="text-align: center; max-width: 800px; margin: 0 auto 2rem;">Para funcionar correctamente y ofrecer una experiencia completa, AuraLauncher requiere los siguientes permisos de Android. Ninguno de estos permisos se utiliza para extraer información de tu dispositivo.</p>
+    
+    <div class="glass-panel glass-card-content">
+        <span class="permission-badge">QUERY_ALL_PACKAGES</span>
+        <h2>Acceso a las aplicaciones instaladas</h2>
+        <p>Al ser un Launcher (lanzador de aplicaciones), el sistema central de la app necesita conocer qué aplicaciones tienes instaladas para poder mostrarlas en el "Cajón de Aplicaciones" y permitirte lanzarlas o categorizarlas.</p>
+    </div>
+
+    <div class="glass-panel glass-card-content">
+        <span class="permission-badge">READ_EXTERNAL_STORAGE / READ_MEDIA_*</span>
+        <h2>Acceso a archivos multimedia</h2>
+        <p>Se requiere este permiso exclusivamente para permitirte seleccionar imágenes o videos personales desde la galería de tu dispositivo para utilizarlos como fondos de pantalla dinámicos en la pantalla de inicio.</p>
+    </div>
+
+    <div class="glass-panel glass-card-content">
+        <span class="permission-badge">BIND_APPWIDGET</span>
+        <h2>Vinculación de Widgets</h2>
+        <p>Este permiso de sistema es obligatorio para cualquier lanzador que desee mostrar widgets (como el clima, relojes, calendario, etc.) desarrollados por otras aplicaciones en la pantalla principal.</p>
+    </div>
+</div>
+
+<!-- Términos de Servicio -->
+<div id="terms" class="legal-content legal-section">
+    <h1>Términos de <span class="gradient-text">Servicio</span></h1>
+    <p style="text-align: center; margin-bottom: 2rem;">Al instalar y utilizar AuraLauncher, aceptas estos términos de carácter legal.</p>
+    
+    <div class="glass-panel glass-card-content">
+        <h2>1. Licencia de Uso</h2>
+        <p>Se te otorga una licencia personal, no exclusiva e intransferible para utilizar AuraLauncher en tus dispositivos Android con fines personales y no comerciales.</p>
+
+        <h2>2. Propiedad Intelectual</h2>
+        <p>El código base, estructura visual, y diseño arquitectónico son propiedad intelectual del desarrollador de AuraLauncher. El usuario mantiene los derechos sobre las imágenes y medios que decida importar como fondos de pantalla.</p>
+
+        <h2>3. Exención de Garantías (As-Is)</h2>
+        <p>El software se proporciona "tal cual", sin garantía de ningún tipo, expresa o implícita. En ningún caso el autor será responsable por cualquier reclamo, daño o responsabilidad (incluyendo pérdida de datos o interrupción del dispositivo) derivados del uso de este software.</p>
+
+        <h2>4. Cambios en los Términos</h2>
+        <p>Nos reservamos el derecho de modificar o reemplazar estas Políticas o Términos en cualquier momento. Cualquier actualización mayor será notificada a través de una nota en las configuraciones de la aplicación.</p>
+    </div>
+</div>
+
+<script>
+    function switchLegalTab(tabId, element) {
+        // Ocultar todos los contenidos
+        document.querySelectorAll('.legal-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        // Quitar clase activa de todas las pestañas
+        document.querySelectorAll('.legal-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Mostrar contenido actual y marcar pestaña
+        document.getElementById(tabId).classList.add('active');
+        element.classList.add('active');
+    }
+</script>
+{% endblock %}

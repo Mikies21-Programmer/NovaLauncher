@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Inicio - AuraLauncher{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="hero-content">
+        <h1 class="hero-title">Tu Inicio.<br><span class="gradient-text">Completamente Tuyo.</span></h1>
+        <p class="hero-subtitle">Descubre AuraLauncher, el launcher definitivo para Android que combina rendimiento extremo con una personalización sin límites.</p>
+        <div class="hero-actions">
+            <a href="{{ url_for('download') }}" class="btn-primary">
+                Descargar Ahora <i class="ph ph-arrow-right"></i>
+            </a>
+            <a href="{{ url_for('features') }}" class="btn-secondary">
+                Ver Características
+            </a>
+        </div>
+    </div>
+    <div class="hero-visual">
+        <div class="phone-mockup">
+            <div class="screen">
+                <div class="mockup-content">
+                    <div class="mockup-widget">12:34</div>
+                    <div class="mockup-icons">
+                        <div class="m-icon"></div>
+                        <div class="m-icon"></div>
+                        <div class="m-icon"></div>
+                        <div class="m-icon"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
