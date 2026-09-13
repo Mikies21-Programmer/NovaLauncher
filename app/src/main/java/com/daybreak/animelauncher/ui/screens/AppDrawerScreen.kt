@@ -60,6 +60,20 @@ fun AppDrawerScreen(
     
     val context = LocalContext.current
 
+    // Prioridad de botón Back dentro del App Drawer:
+    // Si hay un diálogo o menú contextual abierto, lo cierra; si no, cierra el drawer.
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (showIconPicker != null) {
+            showIconPicker = null
+        } else if (showAppMenu != null) {
+            showAppMenu = null
+        } else if (showAddCategoryDialog) {
+            showAddCategoryDialog = false
+        } else {
+            onClose()
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.loadInstalledApps(context)
     }
@@ -116,13 +130,14 @@ fun AppDrawerScreen(
             )
 
             // Tabs for categories
-            ScrollableTabRow(
+            PrimaryScrollableTabRow(
                 selectedTabIndex = selectedCategoryIndex,
                 containerColor = Color.Transparent,
                 contentColor = Color(0xFF00F0FF),
                 edgePadding = 16.dp,
                 divider = {}
             ) {
+
                 categories.forEachIndexed { index, category ->
                     Tab(
                         selected = selectedCategoryIndex == index,

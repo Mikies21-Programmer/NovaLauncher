@@ -9,6 +9,15 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.daybreak.animelauncher.LauncherViewModel
+import com.daybreak.animelauncher.ui.components.VideoWallpaperManager
+import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +75,67 @@ fun LauncherScreen(
     var showWidgetPickerDialog by remember { mutableStateOf(false) }
     var longPressedPageIndex by remember { mutableStateOf(0) }
     var allocatedWidgetId by remember { mutableStateOf<Int?>(null) }
+
+    val pagerState = rememberPagerState(pageCount = { state.viewCount })
+    val coroutineScope = rememberCoroutineScope()
+
+    // Gestión estricta del botón Back según prioridad:
+    // 1. Cerrar diálogo / menú
+    // 2. Cerrar App Drawer
+    // 3. Regresar a pantalla principal (página 0)
+    // 4. Permanecer en Home consumiendo el evento sin cerrar el launcher
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (showWidgetPickerDialog) {
+            showWidgetPickerDialog = false
+        } else if (showBackgroundSelection) {
+            showBackgroundSelection = false
+        } else if (showLongPressMenu) {
+            showLongPressMenu = false
+        } else if (showAppDrawer) {
+            showAppDrawer = false
+        } else if (pagerState.currentPage != 0) {
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(0)
+            }
+        }
+    }
+
+    // Sincronizar el gestor de fondos de video con la página activa
+    LaunchedEffect(pagerState.currentPage) {
+        VideoWallpaperManager.onPageSelected(pagerState.currentPage, context)
+    }
+
+    // Control estricto de animación de desbloqueo: SOLO se ejecuta al desbloquear/iniciar sesión
+    val isUnlockPending by viewModel.isUnlockPending.collectAsState()
+    val unlockAlpha = remember { Animatable(1f) }
+    val unlockScale = remember { Animatable(1f) }
+    val unlockOffsetY = remember { Animatable(0f) }
+
+    LaunchedEffect(isUnlockPending) {
+        if (isUnlockPending) {
+            try {
+                unlockAlpha.snapTo(0f)
+                unlockScale.snapTo(0.96f)
+                unlockOffsetY.snapTo(24f)
+                
+                val j1 = launch {
+                    unlockAlpha.animateTo(1f, animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing))
+                }
+                val j2 = launch {
+                    unlockScale.animateTo(1f, animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing))
+                }
+                val j3 = launch {
+                    unlockOffsetY.animateTo(0f, animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing))
+                }
+                kotlinx.coroutines.joinAll(j1, j2, j3)
+            } finally {
+                unlockAlpha.snapTo(1f)
+                unlockScale.snapTo(1f)
+                unlockOffsetY.snapTo(0f)
+                viewModel.consumeUnlockAnimation()
+            }
+        }
+    }
 
     // Launcher for Widget Configuration screen (e.g. city picker for weather widget)
     val configureLauncher = rememberLauncherForActivityResult(
@@ -119,65 +191,76 @@ fun LauncherScreen(
         }
     }
 
-    val pagerState = rememberPagerState(pageCount = { state.viewCount })
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        HorizontalPager(
-        state = pagerState,
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        var event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                        while (!event.changes.any { it.pressed }) {
-                            event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                        }
-                        var totalY = 0f
-                        var isTracking = true
-                        while (isTracking) {
-                            event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                            val change = event.changes.firstOrNull()
-                            if (change == null || !change.pressed) {
-                                isTracking = false
-                            } else {
-                                val deltaY = change.position.y - change.previousPosition.y
-                                totalY += deltaY
-                                if (totalY < -50f) {
-                                    showAppDrawer = true
+            .graphicsLayer {
+                alpha = unlockAlpha.value
+                scaleX = unlockScale.value
+                scaleY = unlockScale.value
+                translationY = unlockOffsetY.value * density
+            }
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            beyondViewportPageCount = 1,
+            key = { it },
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            var event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                            while (!event.changes.any { it.pressed }) {
+                                event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                            }
+                            var totalX = 0f
+                            var totalY = 0f
+                            var isTracking = true
+                            while (isTracking) {
+                                event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                val change = event.changes.firstOrNull()
+                                if (change == null || !change.pressed) {
                                     isTracking = false
-                                } else if (totalY > 50f && state.gesturesConfig.swipeDownForNotifications) {
-                                    expandStatusBar(context)
-                                    isTracking = false
+                                } else {
+                                    val deltaX = change.position.x - change.previousPosition.x
+                                    val deltaY = change.position.y - change.previousPosition.y
+                                    totalX += deltaX
+                                    totalY += deltaY
+
+                                    // Si el movimiento es predominantemente horizontal, ignorar para permitir que el pager deslice sin interferencia
+                                    if (kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 1.5f && kotlin.math.abs(totalX) > 40f) {
+                                        isTracking = false
+                                    } else if (kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.2f) {
+                                        if (totalY < -80f) {
+                                            showAppDrawer = true
+                                            isTracking = false
+                                        } else if (totalY > 80f && state.gesturesConfig.swipeDownForNotifications) {
+                                            expandStatusBar(context)
+                                            isTracking = false
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onDoubleTap = {
-                        if (state.gesturesConfig.doubleTapToSleep) {
-                            com.daybreak.animelauncher.LauncherAccessibilityService.lockScreen()
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoom, _ ->
+                        if (state.gesturesConfig.pinchInForSettings && zoom < 0.9f) {
+                            onNavigateToSettings()
                         }
                     }
-                )
-            }
-            .pointerInput(Unit) {
-                detectTransformGestures { _, _, zoom, _ ->
-                    if (state.gesturesConfig.pinchInForSettings && zoom < 0.9f) {
-                        onNavigateToSettings()
-                    }
                 }
+        ) { page ->
+            // Transición suave por barrido horizontal sin parpadeos negros (calculada en draw phase, sin recomposiciones)
+            val modifier = Modifier.graphicsLayer {
+                val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+                alpha = (1f - pageOffset * 0.35f).coerceIn(0.65f, 1f)
             }
-    ) { page ->
-        val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
-        val alphaOffset = (1f - pageOffset.coerceIn(0f, 1f))
-        
-        val modifier = Modifier.graphicsLayer {
-            alpha = alphaOffset
-        }
+
+
 
         val viewConfig = state.viewConfigs.getOrNull(page) ?: state.viewConfigs.last()
         
@@ -186,12 +269,34 @@ fun LauncherScreen(
             showLongPressMenu = true
         }
 
+        val onDoubleTapAction = {
+            if (state.gesturesConfig.doubleTapToSleep) {
+                val locked = com.daybreak.animelauncher.LauncherAccessibilityService.lockScreen()
+                if (!locked) {
+                    Toast.makeText(
+                        context,
+                        if (state.language == "es") "Activa el servicio de accesibilidad de NovaLauncher para apagar la pantalla" else "Enable NovaLauncher accessibility service to lock screen",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    try {
+                        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+
         val isEs = state.language == "es"
         if (page % 2 == 0) {
             ViewOne(
                 config = viewConfig,
                 onSettingsClick = onNavigateToSettings,
                 onLongPress = onLongPressAction,
+                onDoubleTap = onDoubleTapAction,
                 appWidgetHost = appWidgetHost,
                 viewModel = viewModel,
                 viewIndex = page,
@@ -204,6 +309,7 @@ fun LauncherScreen(
                 config = viewConfig,
                 onSettingsClick = onNavigateToSettings,
                 onLongPress = onLongPressAction,
+                onDoubleTap = onDoubleTapAction,
                 appWidgetHost = appWidgetHost,
                 viewModel = viewModel,
                 viewIndex = page,
@@ -542,7 +648,17 @@ fun LauncherScreen(
         )
     }
 
-    if (showAppDrawer) {
+    AnimatedVisibility(
+        visible = showAppDrawer,
+        enter = slideInVertically(
+            initialOffsetY = { it / 3 },
+            animationSpec = tween(220, easing = FastOutSlowInEasing)
+        ) + fadeIn(animationSpec = tween(220)),
+        exit = slideOutVertically(
+            targetOffsetY = { it / 3 },
+            animationSpec = tween(180, easing = FastOutLinearInEasing)
+        ) + fadeOut(animationSpec = tween(180))
+    ) {
         AppDrawerScreen(
             viewModel = viewModel,
             installedApps = installedApps,

@@ -27,35 +27,61 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import com.daybreak.animelauncher.AppShortcut
 
 object IconCache {
-    val cache = java.util.concurrent.ConcurrentHashMap<String, ImageBitmap>()
+    private const val MAX_ENTRIES = 80
+    private val lruCache = object : android.util.LruCache<String, ImageBitmap>(MAX_ENTRIES) {}
 
     fun getIcon(context: android.content.Context, packageName: String): ImageBitmap? {
-        if (cache.containsKey(packageName)) return cache[packageName]
-        
+        synchronized(this) {
+            val cached = lruCache.get(packageName)
+            if (cached != null) return cached
+        }
+
         return try {
             val packageManager = context.packageManager
             val drawable = packageManager.getApplicationIcon(packageName)
-            val bitmap = if (drawable is BitmapDrawable) {
-                drawable.bitmap
+            
+            // Downsamplear iconos a 96x96 px (ahorra hasta 75% de RAM por icono decodificado)
+            val targetSize = 96
+            val width = drawable.intrinsicWidth.coerceAtLeast(1).coerceAtMost(targetSize)
+            val height = drawable.intrinsicHeight.coerceAtLeast(1).coerceAtMost(targetSize)
+            
+            val bmp = if (drawable is BitmapDrawable && drawable.bitmap != null) {
+                val srcBmp = drawable.bitmap
+                if (srcBmp.width <= targetSize && srcBmp.height <= targetSize) {
+                    srcBmp
+                } else {
+                    Bitmap.createScaledBitmap(srcBmp, width, height, true)
+                }
             } else {
-                val bmp = Bitmap.createBitmap(
-                    drawable.intrinsicWidth.coerceAtLeast(1),
-                    drawable.intrinsicHeight.coerceAtLeast(1),
-                    Bitmap.Config.ARGB_8888
-                )
-                val canvas = Canvas(bmp)
-                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                val newBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(newBmp)
+                drawable.setBounds(0, 0, width, height)
                 drawable.draw(canvas)
-                bmp
+                newBmp
             }
-            val imageBitmap = bitmap.asImageBitmap()
-            cache[packageName] = imageBitmap
+            val imageBitmap = bmp.asImageBitmap()
+            synchronized(this) {
+                lruCache.put(packageName, imageBitmap)
+            }
             imageBitmap
         } catch (e: Exception) {
             null
+        }
+    }
+
+    fun getCached(packageName: String): ImageBitmap? {
+        synchronized(this) {
+            return lruCache.get(packageName)
+        }
+    }
+
+    fun clear() {
+        synchronized(this) {
+            lruCache.evictAll()
         }
     }
 }
@@ -83,6 +109,7 @@ fun ShortcutIcon(
                 painter = rememberAsyncImagePainter(
                     ImageRequest.Builder(LocalContext.current)
                         .data(shortcut.customIconUri)
+                        .allowHardware(true)
                         .build()
                 ),
                 contentDescription = shortcut.name,
@@ -90,7 +117,7 @@ fun ShortcutIcon(
                 colorFilter = colorFilter
             )
         } else if (shortcut.packageName != null) {
-            var appIconBitmap by remember(shortcut.packageName) { mutableStateOf(IconCache.cache[shortcut.packageName]) }
+            var appIconBitmap by remember(shortcut.packageName) { mutableStateOf(IconCache.getCached(shortcut.packageName)) }
             
             if (appIconBitmap == null) {
                 LaunchedEffect(shortcut.packageName) {
@@ -116,7 +143,7 @@ fun ShortcutIcon(
                 "default_chat" -> Icons.Outlined.ChatBubbleOutline
                 "default_phone" -> Icons.Outlined.Smartphone
                 "default_home" -> Icons.Outlined.Home
-                "default_help" -> Icons.Outlined.HelpOutline
+                "default_help" -> Icons.AutoMirrored.Outlined.HelpOutline
                 "default_headphones" -> Icons.Outlined.Headphones
                 "default_calendar" -> Icons.Outlined.CalendarToday
                 else -> Icons.Outlined.Apps
@@ -125,3 +152,4 @@ fun ShortcutIcon(
         }
     }
 }
+

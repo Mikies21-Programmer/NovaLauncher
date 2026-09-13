@@ -48,4 +48,10 @@ class LauncherAccessibilityService : AccessibilityService() {
         instance = null
         return super.onUnbind(intent)
     }
+
+    override fun onDestroy() {
+        instance = null
+        super.onDestroy()
+    }
 }
+

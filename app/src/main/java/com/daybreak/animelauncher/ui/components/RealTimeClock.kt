@@ -17,12 +17,16 @@ fun RealTimeClock(
     fontSize: TextUnit,
     modifier: Modifier = Modifier
 ) {
-    var time by remember { mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())) }
+    val formatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    var time by remember { mutableStateOf(formatter.format(Date())) }
 
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1000)
-            time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            // Dormir exactamente hasta el próximo cambio de minuto (+50ms margen)
+            val now = System.currentTimeMillis()
+            val millisToNextMinute = 60000L - (now % 60000L) + 50L
+            delay(millisToNextMinute)
+            time = formatter.format(Date())
         }
     }
 
@@ -36,3 +40,4 @@ fun RealTimeClock(
         modifier = modifier
     )
 }
+

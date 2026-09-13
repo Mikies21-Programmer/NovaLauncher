@@ -82,7 +82,15 @@ data class AdvancedStyleConfig(
     val appDrawerBgColor: String = "#030305",
     val appDrawerBgOpacity: Float = 0.75f,
     val appDrawerTextColor: String = "#FFFFFF",
-    val customIconColor: String = "#FFFFFF"
+    val customIconColor: String = "#FFFFFF",
+
+    // Tokens Glass / Dark Premium
+    val accentColor: String = "#00F0FF",
+    val panelTransparency: Float = 0.88f,
+    val glassBorderAlpha: Float = 0.25f,
+    val cornerRadius: Float = 16f,
+    val secondaryTextColor: String = "#A0A0A0",
+    val widgetOpacity: Float = 0.90f
 )
 
 data class DrawerCategory(
@@ -131,8 +139,52 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _state = MutableStateFlow(loadState())
     val state: StateFlow<LauncherState> = _state.asStateFlow()
     
-    val appWidgetHost: AppWidgetHost = AppWidgetHost(application, 1024).apply {
-        startListening()
+    // Estado para ejecutar la animación de desbloqueo SOLAMENTE al desbloquear/iniciar sesión
+    private val _isUnlockPending = MutableStateFlow(false)
+    val isUnlockPending: StateFlow<Boolean> = _isUnlockPending.asStateFlow()
+
+    fun triggerUnlockAnimation() {
+        _isUnlockPending.value = true
+    }
+
+    fun consumeUnlockAnimation() {
+        _isUnlockPending.value = false
+    }
+
+    // Notificaciones no leídas en tiempo real (NotificationListenerService)
+    val notificationCount: StateFlow<Int> = NotificationMonitorService.notificationCount
+
+    init {
+        // Precarga de aplicaciones instaladas en hilo secundario para evitar bloqueos al abrir el drawer
+        viewModelScope.launch(Dispatchers.IO) {
+            val apps = getInstalledApps(application)
+            val stateIcons = _state.value.customAppIcons
+            val mappedApps = apps.map { app ->
+                if (stateIcons.containsKey(app.packageName)) {
+                    app.copy(customIconUri = stateIcons[app.packageName])
+                } else app
+            }
+            _installedApps.value = mappedApps
+            autoCategorizeApps(application, mappedApps)
+        }
+    }
+
+    val appWidgetHost: AppWidgetHost = AppWidgetHost(application, 1024)
+
+    fun onActivityResumed() {
+        try {
+            appWidgetHost.startListening()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun onActivityPaused() {
+        try {
+            appWidgetHost.stopListening()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onCleared() {
@@ -143,6 +195,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             e.printStackTrace()
         }
     }
+
 
     private fun loadState(): LauncherState {
         val json = prefs.getString("launcher_state", null)

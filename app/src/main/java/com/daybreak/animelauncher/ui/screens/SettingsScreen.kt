@@ -573,13 +573,16 @@ fun SettingsScreen(
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(24.dp),
+    backgroundColor: Color = Color(0xFF08080C).copy(alpha = 0.88f),
+    borderColor: Color = Color(0xFF00F0FF).copy(alpha = 0.35f),
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0xFF08080C).copy(alpha = 0.88f),
-        border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.35f)),
+        shape = shape,
+        color = backgroundColor,
+        border = BorderStroke(1.dp, borderColor),
         tonalElevation = 8.dp
     ) {
         Column(

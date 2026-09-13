@@ -22,11 +22,13 @@ android {
     }
 
     lint {
-        // Ignoramos estos errores específicos porque son necesarios para un Launcher
+        // Ignoramos estos errores específicos porque son necesarios para un Launcher y Media3
         disable += "ProtectedPermissions"
         disable += "QueryAllPackagesPermission"
+        disable += "UnsafeOptInUsageError"
         baseline = file("lint-baseline.xml")
     }
+
 
     buildTypes {
         release {

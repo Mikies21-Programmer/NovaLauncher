@@ -202,6 +202,63 @@ fun AdvancedSettingsScreen(
                     }
                 }
 
+                // Sección 0: Efecto Glass y Estilo Dark Premium
+                item {
+                    Text(
+                        text = if (isEs) "EFECTO GLASS Y ESTILO PREMIUM" else "GLASS EFFECT & PREMIUM STYLE",
+                        color = Color(0xFF00F0FF),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+                item {
+                    GlassCard {
+                        ColorSettingItem(
+                            title = if (isEs) "Color de Acento Neón" else "Neon Accent Color",
+                            description = if (isEs) "Tono principal para bordes, brillos y destaques" else "Primary tone for borders, glows and highlights",
+                            currentColorHex = styleConfig.accentColor,
+                            onColorChange = { onUpdate(styleConfig.copy(accentColor = it)) }
+                        )
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        SliderSettingItem(
+                            title = if (isEs) "Transparencia de Paneles Glass" else "Glass Panel Transparency",
+                            description = if (isEs) "Nivel de opacidad de tarjetas y paneles translúcidos" else "Opacity level for cards and translucent panels",
+                            value = styleConfig.panelTransparency,
+                            valueRange = 0.20f..1.00f,
+                            displayValue = "${(styleConfig.panelTransparency * 100).toInt()}%",
+                            onValueChange = { onUpdate(styleConfig.copy(panelTransparency = it)) }
+                        )
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        SliderSettingItem(
+                            title = if (isEs) "Brillo de Borde Glass" else "Glass Border Glow",
+                            description = if (isEs) "Intensidad del contorno cristalino" else "Intensity of crystal outline",
+                            value = styleConfig.glassBorderAlpha,
+                            valueRange = 0.05f..0.60f,
+                            displayValue = "${(styleConfig.glassBorderAlpha * 100).toInt()}%",
+                            onValueChange = { onUpdate(styleConfig.copy(glassBorderAlpha = it)) }
+                        )
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        SliderSettingItem(
+                            title = if (isEs) "Redondeo de Esquinas" else "Corner Rounding",
+                            description = if (isEs) "Curvatura de los paneles Glass" else "Curvature of Glass panels",
+                            value = styleConfig.cornerRadius,
+                            valueRange = 8f..32f,
+                            displayValue = "${styleConfig.cornerRadius.toInt()} dp",
+                            onValueChange = { onUpdate(styleConfig.copy(cornerRadius = it)) }
+                        )
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        SliderSettingItem(
+                            title = if (isEs) "Opacidad de Widgets" else "Widget Opacity",
+                            description = if (isEs) "Contraste de fondo para widgets integrados" else "Background contrast for integrated widgets",
+                            value = styleConfig.widgetOpacity,
+                            valueRange = 0.20f..1.00f,
+                            displayValue = "${(styleConfig.widgetOpacity * 100).toInt()}%",
+                            onValueChange = { onUpdate(styleConfig.copy(widgetOpacity = it)) }
+                        )
+                    }
+                }
+
                 // Sección 1: Colores de Elementos Individuales
                 item {
                     Text(

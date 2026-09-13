@@ -15,7 +15,8 @@ import coil.request.ImageRequest
 fun DynamicBackground(
     @RawRes defaultVideoResId: Int,
     backgroundUri: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pageIndex: Int = 0
 ) {
     val context = LocalContext.current
     val isImage = if (!backgroundUri.isNullOrBlank()) {
@@ -40,6 +41,7 @@ fun DynamicBackground(
             model = ImageRequest.Builder(context)
                 .data(Uri.parse(backgroundUri))
                 .crossfade(true)
+                .allowHardware(true)
                 .build()
         )
         Image(
@@ -52,7 +54,9 @@ fun DynamicBackground(
         VideoBackground(
             videoResId = defaultVideoResId,
             videoUri = backgroundUri,
+            pageIndex = pageIndex,
             modifier = modifier
         )
     }
 }
+

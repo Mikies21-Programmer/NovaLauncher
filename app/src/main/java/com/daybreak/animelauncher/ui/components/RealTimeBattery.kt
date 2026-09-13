@@ -24,36 +24,42 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 
-@Composable
-fun RealTimeBattery(
-    color: Color,
-    fontSize: TextUnit,
-    iconSize: Dp,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    var batteryLevel by remember { mutableIntStateOf(100) }
-    var isCharging by remember { mutableStateOf(false) }
+object BatteryMonitor {
+    var batteryLevel by mutableIntStateOf(100)
+        private set
+    var isCharging by mutableStateOf(false)
+        private set
+    private var listenerCount = 0
+    private var receiver: BroadcastReceiver? = null
 
-    DisposableEffect(context) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
-                    val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                    val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                    val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                    if (level != -1 && scale != -1) {
-                        batteryLevel = (level * 100 / scale.toFloat()).toInt()
-                    }
-                    isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+    fun register(context: Context) {
+        if (listenerCount == 0) {
+            val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            receiver = object : BroadcastReceiver() {
+                override fun onReceive(c: Context?, intent: Intent?) {
+                    update(intent)
                 }
             }
+            val initial = context.applicationContext.registerReceiver(receiver, filter)
+            update(initial)
         }
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        context.registerReceiver(receiver, filter)
-        
-        // Initial state
-        val intent = context.registerReceiver(null, filter)
+        listenerCount++
+    }
+
+    fun unregister(context: Context) {
+        listenerCount--
+        if (listenerCount <= 0) {
+            listenerCount = 0
+            receiver?.let {
+                try {
+                    context.applicationContext.unregisterReceiver(it)
+                } catch (e: Exception) {}
+            }
+            receiver = null
+        }
+    }
+
+    private fun update(intent: Intent?) {
         if (intent != null) {
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
@@ -63,16 +69,30 @@ fun RealTimeBattery(
             }
             isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
         }
+    }
+}
 
+@Composable
+fun RealTimeBattery(
+    color: Color,
+    fontSize: TextUnit,
+    iconSize: Dp,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    DisposableEffect(Unit) {
+        BatteryMonitor.register(context)
         onDispose {
-            context.unregisterReceiver(receiver)
+            BatteryMonitor.unregister(context)
         }
     }
 
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        val icon = if (isCharging) Icons.Filled.BatteryChargingFull else Icons.Filled.BatteryFull
+        val icon = if (BatteryMonitor.isCharging) Icons.Filled.BatteryChargingFull else Icons.Filled.BatteryFull
         Icon(icon, contentDescription = "Battery", tint = color, modifier = Modifier.size(iconSize))
         Spacer(modifier = Modifier.width(4.dp))
-        Text(text = "$batteryLevel%", fontWeight = FontWeight.Light, fontSize = fontSize, color = color, maxLines = 1, softWrap = false)
+        Text(text = "${BatteryMonitor.batteryLevel}%", fontWeight = FontWeight.Light, fontSize = fontSize, color = color, maxLines = 1, softWrap = false)
     }
 }
+

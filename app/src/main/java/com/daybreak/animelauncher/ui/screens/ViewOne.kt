@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +45,7 @@ fun ViewOne(
     config: ViewConfig,
     onSettingsClick: () -> Unit,
     onLongPress: () -> Unit = {},
+    onDoubleTap: () -> Unit = {},
     appWidgetHost: AppWidgetHost? = null,
     viewModel: LauncherViewModel? = null,
     viewIndex: Int = 0,
@@ -59,7 +61,10 @@ fun ViewOne(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { onLongPress() })
+                detectTapGestures(
+                    onLongPress = { onLongPress() },
+                    onDoubleTap = { onDoubleTap() }
+                )
             }
     ) {
         val style = viewModel?.state?.collectAsState()?.value?.styleConfig ?: AdvancedStyleConfig()
@@ -79,10 +84,15 @@ fun ViewOne(
         DynamicBackground(
             defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,
             backgroundUri = config.backgroundUri,
+            pageIndex = viewIndex,
             modifier = Modifier.fillMaxSize()
         )
 
         if (!showUI) return@BoxWithConstraints
+
+        // Reutilización de objetos Path para evitar recolección de basura (GC) durante el deslizamiento
+        val silverPath = remember { Path() }
+        val barPath = remember { Path() }
 
         // Draw Custom Shapes using Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -96,25 +106,23 @@ fun ViewOne(
             val cySilver = ch - cts
             
             // 1. Triángulo inferior oscuro / neón
-            val silverPath = Path().apply {
-                moveTo(cxSilver, ch)
-                lineTo(cm, cySilver)
-                lineTo(cm, ch)
-                close()
-            }
+            silverPath.reset()
+            silverPath.moveTo(cxSilver, ch)
+            silverPath.lineTo(cm, cySilver)
+            silverPath.lineTo(cm, ch)
+            silverPath.close()
             drawPath(path = silverPath, color = style.triangleColor.parseColorSafe().copy(alpha = style.triangleOpacity))
             
             // 2. Barra Diagonal
             val cxBlack = cxSilver - cth
             val cyBlack = cySilver - cth
             
-            val barPath = Path().apply {
-                moveTo(cxBlack, ch)
-                lineTo(cxSilver, ch)
-                lineTo(cm, cySilver)
-                lineTo(cm, cyBlack)
-                close()
-            }
+            barPath.reset()
+            barPath.moveTo(cxBlack, ch)
+            barPath.lineTo(cxSilver, ch)
+            barPath.lineTo(cm, cySilver)
+            barPath.lineTo(cm, cyBlack)
+            barPath.close()
             drawPath(path = barPath, color = style.diagonalBarColor.parseColorSafe().copy(alpha = style.diagonalBarOpacity))
         }
 
@@ -163,7 +171,7 @@ fun ViewOne(
                     modifier = Modifier.graphicsLayer { rotationZ = -45f },
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val loc = if (language == "es") Locale("es", "ES") else Locale.ENGLISH
+                    val loc = if (language == "es") Locale.forLanguageTag("es-ES") else Locale.ENGLISH
                     val dayOfWeek = SimpleDateFormat("EEEE", loc).format(Date())
                     val date = if (language == "es") SimpleDateFormat("d 'de' MMM", loc).format(Date()) else SimpleDateFormat("MMM d'th'", loc).format(Date())
                     Text(
@@ -291,8 +299,33 @@ fun ViewOne(
                                 )
                             }
                             Spacer(modifier = Modifier.height(2.dp))
-                            val msgText = if (language == "en") "0 messages" else "0 mensajes"
-                            Text(text = msgText, fontWeight = FontWeight.Thin, fontSize = (w * 0.0318f).coerceIn(10.6.dp, 12.72.dp).value.sp, color = Color.White, maxLines = 1, softWrap = false)
+                            val notifCount = viewModel?.notificationCount?.collectAsState()?.value ?: 0
+                            val msgText = when {
+                                notifCount == 0 -> if (language == "en") "0 messages" else "0 mensajes"
+                                notifCount == 1 -> if (language == "en") "1 message" else "1 mensaje"
+                                notifCount > 99 -> if (language == "en") "99+ messages" else "99+ mensajes"
+                                else -> if (language == "en") "$notifCount messages" else "$notifCount mensajes"
+                            }
+                            Text(
+                                text = msgText,
+                                fontWeight = FontWeight.Thin,
+                                fontSize = (w * 0.0318f).coerceIn(10.6.dp, 12.72.dp).value.sp,
+                                color = style.messagesColor.parseColorSafe(),
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.clickable {
+                                    if (com.daybreak.animelauncher.NotificationMonitorService.isPermissionGranted(context)) {
+                                        expandStatusBar(context)
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            if (language == "en") "Grant notification access" else "Concede permiso de acceso a notificaciones",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        com.daybreak.animelauncher.NotificationMonitorService.openPermissionSettings(context)
+                                    }
+                                }
+                            )
                         }
                     }
                 }
