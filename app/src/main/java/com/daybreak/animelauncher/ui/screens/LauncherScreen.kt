@@ -120,6 +120,11 @@ fun LauncherScreen(
         VideoWallpaperManager.onPageSelected(pagerState.currentPage, context)
     }
 
+    // Señal explícita y determinista de cambio de topología de páginas (añadir/quitar pantalla)
+    LaunchedEffect(state.viewCount) {
+        VideoWallpaperManager.onPageSelected(pagerState.currentPage, context)
+    }
+
     // Control estricto de animación de desbloqueo: SOLO se ejecuta al desbloquear/iniciar sesión
     val isUnlockPending by viewModel.isUnlockPending.collectAsState()
     val unlockAlpha = remember { Animatable(1f) }

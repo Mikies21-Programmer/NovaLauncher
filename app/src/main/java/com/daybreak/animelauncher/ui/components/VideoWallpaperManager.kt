@@ -145,9 +145,10 @@ object VideoWallpaperManager {
      * que el decodificador intente seguir emitiendo buffers hacia una superficie huérfana.
      */
     @Synchronized
-    fun unregisterPlayerView(pageIndex: Int, playerView: PlayerView? = null) {
+    fun unregisterPlayerView(pageIndex: Int, playerView: PlayerView? = null, source: String = "unknown") {
         val existing = pageBindings[pageIndex]
         if (existing != null && (playerView == null || existing.playerView === playerView)) {
+            val syncContext = existing.playerView.context.applicationContext ?: appContext
             pageBindings.remove(pageIndex)
             existing.playerView.player = null
             val a = slotA
@@ -170,6 +171,8 @@ object VideoWallpaperManager {
                 b.isSurfaceBound = false
                 b.assignedPage = null
             }
+            // Forzar resincronización inmediata de los slots para que las páginas restantes no queden desvinculadas
+            syncContext?.let { syncSlots(it) }
         }
     }
 

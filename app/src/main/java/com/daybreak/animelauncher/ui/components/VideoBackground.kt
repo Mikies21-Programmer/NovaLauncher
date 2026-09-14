@@ -33,7 +33,7 @@ fun VideoBackground(
             VideoWallpaperManager.registerPlayerView(pageIndex, playerView, videoResId, videoUri)
         },
         onReset = { playerView ->
-            VideoWallpaperManager.unregisterPlayerView(pageIndex, playerView)
+            VideoWallpaperManager.unregisterPlayerView(pageIndex, playerView, source = "onReset")
         },
         modifier = modifier
     )
@@ -53,7 +53,7 @@ fun VideoBackground(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            VideoWallpaperManager.unregisterPlayerView(pageIndex)
+            VideoWallpaperManager.unregisterPlayerView(pageIndex, source = "onDispose")
         }
     }
 }
