@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Build
+import com.daybreak.animelauncher.widget.WidgetHostManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -135,6 +136,8 @@ data class LauncherState(
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
+    val widgetHostManager = WidgetHostManager(application)
+    val appWidgetHost: AppWidgetHost get() = widgetHostManager.appWidgetHost
 
     private val _state = MutableStateFlow(loadState())
     val state: StateFlow<LauncherState> = _state.asStateFlow()
@@ -190,31 +193,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    val appWidgetHost: AppWidgetHost = AppWidgetHost(application, 1024)
-
-    fun onActivityResumed() {
-        try {
-            appWidgetHost.startListening()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    fun onActivityStarted() {
+        widgetHostManager.startListening()
     }
 
-    fun onActivityPaused() {
-        try {
-            appWidgetHost.stopListening()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    fun onActivityStopped() {
+        widgetHostManager.stopListening()
     }
 
     override fun onCleared() {
         super.onCleared()
-        try {
-            appWidgetHost.stopListening()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        widgetHostManager.clearViews()
         try {
             getApplication<Application>().unregisterReceiver(packageReceiver)
         } catch (e: Exception) {
@@ -256,6 +245,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 e.printStackTrace()
             }
         }
+        // Validación de widgets contra providers instalados para purgar huérfanos
+        val cleanedViewConfigs = state.viewConfigs.map { config ->
+            config.copy(nativeWidgetIds = widgetHostManager.validateAndCleanWidgets(config.nativeWidgetIds))
+        }
+        state = state.copy(viewConfigs = cleanedViewConfigs)
         return state
     }
 
@@ -577,6 +571,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun removeNativeWidget(viewIndex: Int, widgetId: Int) {
+        widgetHostManager.deleteWidgetId(widgetId)
         updateState { currentState ->
             val newConfigs = currentState.viewConfigs.toMutableList()
             if (viewIndex in newConfigs.indices) {

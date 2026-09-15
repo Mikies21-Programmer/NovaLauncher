@@ -61,6 +61,8 @@ fun ViewTwo(
     viewIndex: Int = 0,
     language: String = "es",
     showUI: Boolean = true,
+    isEditMode: Boolean = false,
+    onEnterEditMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -371,7 +373,7 @@ fun ViewTwo(
         }
 
         // Native System AppWidgets container
-        if (appWidgetHost != null && viewModel != null && config.nativeWidgetIds.isNotEmpty()) {
+        if (viewModel != null && config.nativeWidgetIds.isNotEmpty()) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -381,7 +383,9 @@ fun ViewTwo(
                 items(config.nativeWidgetIds) { widgetId ->
                     NativeWidgetView(
                         appWidgetId = widgetId,
-                        appWidgetHost = appWidgetHost,
+                        widgetHostManager = viewModel.widgetHostManager,
+                        isEditMode = isEditMode,
+                        onEnterEditMode = onEnterEditMode,
                         onDelete = {
                             viewModel.removeNativeWidget(viewIndex, widgetId)
                         }

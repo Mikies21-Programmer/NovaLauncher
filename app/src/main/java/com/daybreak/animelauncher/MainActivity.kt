@@ -30,6 +30,39 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: LauncherViewModel by viewModels()
 
+    companion object {
+        const val REQUEST_CONFIGURE_WIDGET = 6124
+    }
+
+    private var onWidgetConfigureResultCallback: ((resultCode: Int, data: Intent?) -> Unit)? = null
+
+    fun startAppWidgetConfigure(appWidgetId: Int, callback: (resultCode: Int, data: Intent?) -> Unit): Boolean {
+        onWidgetConfigureResultCallback = callback
+        return try {
+            viewModel.widgetHostManager.appWidgetHost.startAppWidgetConfigureActivityForResult(
+                this,
+                appWidgetId,
+                0,
+                REQUEST_CONFIGURE_WIDGET,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            onWidgetConfigureResultCallback = null
+            false
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in ComponentActivity")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CONFIGURE_WIDGET) {
+            onWidgetConfigureResultCallback?.invoke(resultCode, data)
+            onWidgetConfigureResultCallback = null
+        }
+    }
+
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -117,10 +150,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        viewModel.onActivityStarted()
+    }
+
     override fun onResume() {
         super.onResume()
         VideoWallpaperManager.onResume(this)
-        viewModel.onActivityResumed()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -130,17 +167,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         VideoWallpaperManager.onPause()
-        viewModel.onActivityPaused()
         super.onPause()
     }
 
     override fun onStop() {
         VideoWallpaperManager.onPause()
-        viewModel.onActivityPaused()
+        viewModel.onActivityStopped()
         super.onStop()
     }
 
     override fun onDestroy() {
+        onWidgetConfigureResultCallback = null
         try {
             unregisterReceiver(screenReceiver)
         } catch (e: Exception) {

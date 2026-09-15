@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Widgets
+import androidx.compose.material.icons.outlined.Edit
+import coil.compose.AsyncImage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,10 +66,11 @@ fun LauncherScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     
-    // Native Android AppWidgetHost (HOST_ID = 1024) managed by ViewModel
-    val appWidgetHost = viewModel.appWidgetHost
+    val widgetHostManager = viewModel.widgetHostManager
+    val appWidgetHost = widgetHostManager.appWidgetHost
 
     var navState by remember { mutableStateOf<LauncherNavState>(LauncherNavState.Home) }
+    var isWidgetEditMode by remember { mutableStateOf(false) }
     var longPressedPageIndex by remember { mutableStateOf(0) }
     var allocatedWidgetId by remember { mutableStateOf<Int?>(null) }
     val installedApps by viewModel.installedApps.collectAsState()
@@ -76,6 +79,10 @@ fun LauncherScreen(
     val coroutineScope = rememberCoroutineScope()
 
     fun handleBackNavigation(): Boolean {
+        if (isWidgetEditMode) {
+            isWidgetEditMode = false
+            return true
+        }
         return when (navState) {
             is LauncherNavState.InDrawer -> {
                 navState = LauncherNavState.Home
@@ -107,10 +114,11 @@ fun LauncherScreen(
     }
 
     // Gestión estricta del botón Back según prioridad:
-    // 1. Cerrar diálogo / menú
-    // 2. Cerrar App Drawer
-    // 3. Regresar a pantalla principal (página 0)
-    // 4. Permanecer en Home consumiendo el evento sin cerrar el launcher
+    // 1. Cerrar Modo Edición de widgets
+    // 2. Cerrar diálogo / menú
+    // 3. Cerrar App Drawer
+    // 4. Regresar a pantalla principal (página 0)
+    // 5. Permanecer en Home consumiendo el evento sin cerrar el launcher
     androidx.activity.compose.BackHandler(enabled = true) {
         handleBackNavigation()
     }
@@ -164,8 +172,10 @@ fun LauncherScreen(
         if (result.resultCode == Activity.RESULT_OK && allocatedWidgetId != null) {
             viewModel.addNativeWidget(longPressedPageIndex, allocatedWidgetId!!)
         } else if (allocatedWidgetId != null) {
-            try { appWidgetHost.deleteAppWidgetId(allocatedWidgetId!!) } catch (e: Exception) {}
+            widgetHostManager.deleteWidgetId(allocatedWidgetId!!)
+            Toast.makeText(context, if (state.language == "es") "Configuración cancelada" else "Configuration cancelled", Toast.LENGTH_SHORT).show()
         }
+        allocatedWidgetId = null
     }
 
     // Launcher for ACTION_APPWIDGET_BIND (asks user permission to bind widget if not already granted)
@@ -174,23 +184,39 @@ fun LauncherScreen(
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && allocatedWidgetId != null) {
             val widgetId = allocatedWidgetId!!
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val info = appWidgetManager.getAppWidgetInfo(widgetId)
+            val info = widgetHostManager.getAppWidgetInfo(widgetId)
             if (info?.configure != null) {
-                val configureIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE).apply {
-                    component = info.configure
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                }
-                try {
-                    configureLauncher.launch(configureIntent)
-                } catch (e: Exception) {
-                    viewModel.addNativeWidget(longPressedPageIndex, widgetId)
+                val activity = context as? com.daybreak.animelauncher.MainActivity
+                val started = activity?.startAppWidgetConfigure(widgetId) { cfgResult, _ ->
+                    if (cfgResult == Activity.RESULT_OK) {
+                        viewModel.addNativeWidget(longPressedPageIndex, widgetId)
+                    } else {
+                        widgetHostManager.deleteWidgetId(widgetId)
+                        Toast.makeText(context, if (state.language == "es") "Configuración cancelada" else "Configuration cancelled", Toast.LENGTH_SHORT).show()
+                    }
+                    allocatedWidgetId = null
+                } ?: false
+                if (!started) {
+                    val configureIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE).apply {
+                        component = info.configure
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                    }
+                    try {
+                        configureLauncher.launch(configureIntent)
+                    } catch (e: Exception) {
+                        widgetHostManager.deleteWidgetId(widgetId)
+                        allocatedWidgetId = null
+                        Toast.makeText(context, if (state.language == "es") "Error al abrir configuración" else "Error opening configuration", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } else {
                 viewModel.addNativeWidget(longPressedPageIndex, widgetId)
+                allocatedWidgetId = null
             }
         } else if (allocatedWidgetId != null) {
-            try { appWidgetHost.deleteAppWidgetId(allocatedWidgetId!!) } catch (e: Exception) {}
+            widgetHostManager.deleteWidgetId(allocatedWidgetId!!)
+            allocatedWidgetId = null
+            Toast.makeText(context, if (state.language == "es") "Permiso denegado por el usuario" else "Permission denied by user", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -321,6 +347,8 @@ fun LauncherScreen(
                 viewIndex = page,
                 language = state.language,
                 showUI = (navState !is LauncherNavState.InDrawer),
+                isEditMode = isWidgetEditMode,
+                onEnterEditMode = { isWidgetEditMode = true },
                 modifier = modifier
             )
         } else {
@@ -334,6 +362,8 @@ fun LauncherScreen(
                 viewIndex = page,
                 language = state.language,
                 showUI = (navState !is LauncherNavState.InDrawer),
+                isEditMode = isWidgetEditMode,
+                onEnterEditMode = { isWidgetEditMode = true },
                 modifier = modifier
             )
         }
@@ -405,6 +435,48 @@ fun LauncherScreen(
                     }
                 }
         )
+
+        // 4. Banner flotante durante Modo Edición de Widgets
+        AnimatedVisibility(
+            visible = isWidgetEditMode,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 40.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF08080C).copy(alpha = 0.95f),
+                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.6f)),
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        text = if (state.language == "es") "Modo Edición de Widgets" else "Widget Edit Mode",
+                        color = Color(0xFF00F0FF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Button(
+                        onClick = { isWidgetEditMode = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00F0FF),
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Text(if (state.language == "es") "Listo" else "Done", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 
     // Long Press Classic Launcher Menu (Fondos, Widgets, Configuración)
@@ -474,6 +546,27 @@ fun LauncherScreen(
                         }
                     }
 
+                    // 2.5 Modo Edición de Widgets
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .clickable {
+                                navState = LauncherNavState.Home
+                                isWidgetEditMode = true
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(Icons.Outlined.Edit, contentDescription = "Editar Widgets", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Column {
+                            Text(if (isEs) "Editar widgets" else "Edit widgets", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
+                            Text(if (isEs) "Eliminar widgets colocados" else "Manage or remove placed widgets", color = Color.LightGray, fontSize = 12.sp)
+                        }
+                    }
+
                     // 3. Configuración
                     Row(
                         modifier = Modifier
@@ -519,19 +612,21 @@ fun LauncherScreen(
                     .fillMaxWidth()
                     .fillMaxHeight(0.85f)
             ) {
-                val appWidgetManager = remember { AppWidgetManager.getInstance(context) }
                 val installedProviders = remember {
-                    try {
-                        appWidgetManager.installedProviders.sortedBy { it.loadLabel(context.packageManager) }
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
+                    widgetHostManager.getHomeScreenProviders(context)
                 }
                 var widgetSearchQuery by remember { mutableStateOf("") }
                 val filteredProviders = remember(installedProviders, widgetSearchQuery) {
                     if (widgetSearchQuery.isBlank()) installedProviders
-                    else installedProviders.filter { 
-                        it.loadLabel(context.packageManager).contains(widgetSearchQuery, ignoreCase = true) 
+                    else installedProviders.filter { provider ->
+                        val label = provider.loadLabel(context.packageManager)
+                        val appLabel = try {
+                            context.packageManager.getApplicationLabel(
+                                context.packageManager.getApplicationInfo(provider.provider.packageName, 0)
+                            ).toString()
+                        } catch (e: Exception) { "" }
+                        label.contains(widgetSearchQuery, ignoreCase = true) ||
+                                appLabel.contains(widgetSearchQuery, ignoreCase = true)
                     }
                 }
 
@@ -542,7 +637,7 @@ fun LauncherScreen(
                     Text(
                         text = if (isEs) "Selecciona un Widget" else "Select a Widget",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF00F0FF), // Cian Neón fosforecente único
+                        color = Color(0xFF00F0FF),
                         fontWeight = FontWeight.Normal
                     )
 
@@ -555,7 +650,7 @@ fun LauncherScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF00F0FF), // Cian Neón fosforecente único
+                            focusedBorderColor = Color(0xFF00F0FF),
                             unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
                             cursorColor = Color(0xFF00F0FF)
                         ),
@@ -567,6 +662,18 @@ fun LauncherScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(filteredProviders) { providerInfo ->
+                            val pm = context.packageManager
+                            val label = remember(providerInfo) { providerInfo.loadLabel(pm) }
+                            val appName = remember(providerInfo) {
+                                try { pm.getApplicationLabel(pm.getApplicationInfo(providerInfo.provider.packageName, 0)).toString() } catch (e: Exception) { "" }
+                            }
+                            val previewDrawable = remember(providerInfo) {
+                                widgetHostManager.loadWidgetPreview(providerInfo, context)
+                            }
+                            val cellSpanText = remember(providerInfo) {
+                                widgetHostManager.getCellSpanString(providerInfo, context)
+                            }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -574,29 +681,46 @@ fun LauncherScreen(
                                     .background(Color.White.copy(alpha = 0.08f))
                                     .clickable {
                                         navState = LauncherNavState.Home
+                                        val targetPage = longPressedPageIndex
                                         try {
-                                            val widgetId = appWidgetHost.allocateAppWidgetId()
+                                            val widgetId = widgetHostManager.allocateWidgetId()
                                             allocatedWidgetId = widgetId
-                                            val bound = try {
-                                                appWidgetManager.bindAppWidgetIdIfAllowed(widgetId, providerInfo.provider)
-                                            } catch (e: Exception) {
-                                                false
+                                            val bound = widgetHostManager.bindAppWidgetIdIfAllowed(widgetId, providerInfo.provider)
+
+                                            fun launchConfigureOrAdd() {
+                                                if (providerInfo.configure != null) {
+                                                    val activity = context as? com.daybreak.animelauncher.MainActivity
+                                                    val started = activity?.startAppWidgetConfigure(widgetId) { resultCode, _ ->
+                                                        if (resultCode == Activity.RESULT_OK) {
+                                                            viewModel.addNativeWidget(targetPage, widgetId)
+                                                        } else {
+                                                            widgetHostManager.deleteWidgetId(widgetId)
+                                                            Toast.makeText(context, if (isEs) "Configuración cancelada" else "Configuration cancelled", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                        allocatedWidgetId = null
+                                                    } ?: false
+
+                                                    if (!started) {
+                                                        val configureIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE).apply {
+                                                            component = providerInfo.configure
+                                                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                                                        }
+                                                        try {
+                                                            configureLauncher.launch(configureIntent)
+                                                        } catch (e: Exception) {
+                                                            widgetHostManager.deleteWidgetId(widgetId)
+                                                            allocatedWidgetId = null
+                                                            Toast.makeText(context, if (isEs) "No se pudo abrir la configuración" else "Could not open configuration", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                } else {
+                                                    viewModel.addNativeWidget(targetPage, widgetId)
+                                                    allocatedWidgetId = null
+                                                }
                                             }
 
                                             if (bound) {
-                                                if (providerInfo.configure != null) {
-                                                    val configureIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE).apply {
-                                                        component = providerInfo.configure
-                                                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                                                    }
-                                                    try {
-                                                        configureLauncher.launch(configureIntent)
-                                                    } catch (e: Exception) {
-                                                        viewModel.addNativeWidget(longPressedPageIndex, widgetId)
-                                                    }
-                                                } else {
-                                                    viewModel.addNativeWidget(longPressedPageIndex, widgetId)
-                                                }
+                                                launchConfigureOrAdd()
                                             } else {
                                                 val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
                                                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -605,34 +729,68 @@ fun LauncherScreen(
                                                 try {
                                                     bindWidgetLauncher.launch(bindIntent)
                                                 } catch (e: Exception) {
-                                                    Toast.makeText(context, if (isEs) "Permiso requerido por el sistema" else "System permission required", Toast.LENGTH_SHORT).show()
+                                                    widgetHostManager.deleteWidgetId(widgetId)
+                                                    allocatedWidgetId = null
+                                                    Toast.makeText(context, if (isEs) "Permiso para vincular widget requerido" else "Permission to bind widget required", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
                                         } catch (e: Exception) {
                                             e.printStackTrace()
+                                            if (allocatedWidgetId != null) {
+                                                widgetHostManager.deleteWidgetId(allocatedWidgetId!!)
+                                                allocatedWidgetId = null
+                                            }
                                         }
                                     }
-                                    .padding(14.dp),
+                                    .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                val pm = context.packageManager
-                                val label = remember(providerInfo) { providerInfo.loadLabel(pm) }
-                                val appName = remember(providerInfo) {
-                                    try { pm.getApplicationLabel(pm.getApplicationInfo(providerInfo.provider.packageName, 0)).toString() } catch (e: Exception) { "" }
+                                // Preview / Icon
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.05f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (previewDrawable != null) {
+                                        AsyncImage(
+                                            model = previewDrawable,
+                                            contentDescription = label,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Widgets,
+                                            contentDescription = null,
+                                            tint = Color(0xFF00F0FF),
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
                                 }
 
-                                Icon(
-                                    imageVector = Icons.Outlined.Widgets,
-                                    contentDescription = null,
-                                    tint = Color(0xFF00F0FF),
-                                    modifier = Modifier.size(32.dp)
-                                )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = label, color = Color.White, fontWeight = FontWeight.Normal, fontSize = 15.sp)
                                     if (appName.isNotEmpty() && appName != label) {
                                         Text(text = appName, color = Color.LightGray, fontSize = 12.sp)
                                     }
+                                }
+
+                                // Tamaño en celdas (ej. 2 × 1, 4 × 2)
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF00F0FF).copy(alpha = 0.15f),
+                                    border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.35f))
+                                ) {
+                                    Text(
+                                        text = cellSpanText,
+                                        color = Color(0xFF00F0FF),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
                                 }
                             }
                         }
