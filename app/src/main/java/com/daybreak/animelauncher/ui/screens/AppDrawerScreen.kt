@@ -126,7 +126,7 @@ fun AppDrawerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 48.dp) // SafeArea
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .clickable(enabled = false, onClick = {}) // Consume clicks inside
         ) {
             // Search Bar
@@ -174,9 +174,15 @@ fun AppDrawerScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Apps Grid
+            val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = 16.dp + navBarBottom
+                ),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
@@ -194,6 +200,7 @@ fun AppDrawerScreen(
                                                 if (app.id.contains("/")) {
                                                     launchIntent.setClassName(app.packageName, app.id.substringAfter("/"))
                                                 }
+                                                onClose()
                                                 context.startActivity(launchIntent)
                                             }
                                         }

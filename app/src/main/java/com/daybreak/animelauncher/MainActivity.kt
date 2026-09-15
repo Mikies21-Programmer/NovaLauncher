@@ -78,16 +78,65 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var navControllerRef: androidx.navigation.NavController? = null
+
+    fun isGestureNavigation(): Boolean {
+        val rootInsets = androidx.core.view.ViewCompat.getRootWindowInsets(window.decorView)
+        if (rootInsets != null) {
+            val tappableBottom = rootInsets.getInsets(WindowInsetsCompat.Type.tappableElement()).bottom
+            val navBottom = rootInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            if (tappableBottom > 0) return false // 3 botones físicos/virtuales detectados
+            if (navBottom > 0 && tappableBottom == 0) return true // Barra de gestos
+        }
+        try {
+            val navMode = android.provider.Settings.Secure.getInt(contentResolver, "navigation_mode", -1)
+            if (navMode == 2) return true
+            if (navMode == 0 || navMode == 1) return false
+        } catch (_: Exception) {}
+        try {
+            val fsg = android.provider.Settings.Global.getInt(contentResolver, "force_fsg_nav_bar", -1)
+            if (fsg == 1) return true
+            if (fsg == 0) return false
+        } catch (_: Exception) {}
+        return false
+    }
+
+    fun applySystemBarsPolicy(immersiveMode: Boolean) {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.isAppearanceLightStatusBars = false
+        val isGestures = isGestureNavigation()
+        if (isGestures && immersiveMode) {
+            windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars())
+        } else {
+            windowInsetsController.show(WindowInsetsCompat.Type.navigationBars())
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val isHome = (intent?.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) ||
+                intent?.hasCategory(Intent.CATEGORY_HOME) == true
+        if (isHome) {
+            navControllerRef?.let { nav ->
+                if (nav.currentDestination?.route != "launcher") {
+                    nav.navigate("launcher") {
+                        popUpTo("launcher") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
+            }
+            viewModel.onHomeIntentReceived()
+        }
+    }
+
     @android.annotation.SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars())
-        // Iconos claros en la barra de estado para máxima visibilidad sobre wallpapers oscuros/neón
-        windowInsetsController.isAppearanceLightStatusBars = false
+        applySystemBarsPolicy(viewModel.state.value.gesturesConfig.immersiveMode)
 
         // Registrar receptor de desbloqueo de pantalla
         val filter = IntentFilter().apply {
@@ -103,18 +152,15 @@ class MainActivity : ComponentActivity() {
                     containerColor = androidx.compose.ui.graphics.Color.Black
                 ) { _ ->
                     val navController = rememberNavController()
+                    LaunchedEffect(navController) {
+                        navControllerRef = navController
+                    }
                     
                     val state by viewModel.state.collectAsState()
                     val startDest = if (state.hasCompletedOnboarding) "launcher" else "onboarding"
                     
-                    val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                     LaunchedEffect(state.gesturesConfig.immersiveMode) {
-                        if (state.gesturesConfig.immersiveMode) {
-                            insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                            insetsController.hide(WindowInsetsCompat.Type.navigationBars())
-                        } else {
-                            insetsController.show(WindowInsetsCompat.Type.navigationBars())
-                        }
+                        applySystemBarsPolicy(state.gesturesConfig.immersiveMode)
                     }
                     
                     NavHost(
@@ -157,11 +203,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        applySystemBarsPolicy(viewModel.state.value.gesturesConfig.immersiveMode)
         VideoWallpaperManager.onResume(this)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applySystemBarsPolicy(viewModel.state.value.gesturesConfig.immersiveMode)
+        }
         VideoWallpaperManager.onWindowFocusChanged(hasFocus, this)
     }
 
@@ -177,6 +227,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        navControllerRef = null
         onWidgetConfigureResultCallback = null
         try {
             unregisterReceiver(screenReceiver)

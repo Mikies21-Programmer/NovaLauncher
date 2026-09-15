@@ -19,6 +19,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 data class AppShortcut(
     val id: String,
@@ -152,6 +155,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun consumeUnlockAnimation() {
         _isUnlockPending.value = false
+    }
+
+    // Trigger para eventos de navegación HOME del sistema (onNewIntent)
+    private val _homeActionTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val homeActionTrigger: SharedFlow<Unit> = _homeActionTrigger.asSharedFlow()
+
+    fun onHomeIntentReceived() {
+        _homeActionTrigger.tryEmit(Unit)
     }
 
     // Notificaciones no leídas en tiempo real (NotificationListenerService)

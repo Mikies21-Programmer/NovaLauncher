@@ -111,6 +111,9 @@ fun SettingsScreen(
 
     var showAdvancedSettings by remember { mutableStateOf(false) }
     if (showAdvancedSettings) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            showAdvancedSettings = false
+        }
         AdvancedSettingsScreen(
             styleConfig = state.styleConfig,
             backgroundUri = firstScreenUri,
@@ -124,6 +127,9 @@ fun SettingsScreen(
     }
 
     if (showBackgroundSelection && selectedViewIndexForMedia != null) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            showBackgroundSelection = false
+        }
         BackgroundSelectionScreen(
             isEs = isEs,
             onThemeSelected = { theme ->

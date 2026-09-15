@@ -118,9 +118,24 @@ fun LauncherScreen(
     // 2. Cerrar diálogo / menú
     // 3. Cerrar App Drawer
     // 4. Regresar a pantalla principal (página 0)
-    // 5. Permanecer en Home consumiendo el evento sin cerrar el launcher
-    androidx.activity.compose.BackHandler(enabled = true) {
+    // 5. Si ya está en Home Página 0, deshabilitar BackHandler para no bloquear al sistema ni a Predictive Back
+    val canGoBack = isWidgetEditMode || navState !is LauncherNavState.Home || pagerState.currentPage != 0
+
+    androidx.activity.compose.BackHandler(enabled = canGoBack) {
         handleBackNavigation()
+    }
+
+    // Escuchar evento HOME del sistema (onNewIntent) para volver a Página 0 y cerrar overlays
+    LaunchedEffect(Unit) {
+        viewModel.homeActionTrigger.collect {
+            isWidgetEditMode = false
+            navState = LauncherNavState.Home
+            if (pagerState.currentPage != 0) {
+                coroutineScope.launch {
+                    pagerState.animateScrollToPage(0)
+                }
+            }
+        }
     }
 
     // Sincronizar el gestor de fondos de video con la página activa
@@ -369,72 +384,6 @@ fun LauncherScreen(
         }
         }
 
-        // 1. Left Edge -> Back (Lógica interna independiente de accesibilidad)
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxHeight()
-                .width(24.dp)
-                .pointerInput(Unit) {
-                    var totalDrag = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { totalDrag = 0f }
-                    ) { _, dragAmount ->
-                        totalDrag += dragAmount
-                        if (totalDrag > 50f && state.gesturesConfig.edgeSwipeToBack) {
-                            handleBackNavigation()
-                            totalDrag = 0f
-                        }
-                    }
-                }
-        )
-
-        // 2. Right Edge -> Back (Lógica interna independiente de accesibilidad)
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(24.dp)
-                .pointerInput(Unit) {
-                    var totalDrag = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { totalDrag = 0f }
-                    ) { _, dragAmount ->
-                        totalDrag += dragAmount
-                        if (totalDrag < -50f && state.gesturesConfig.edgeSwipeToBack) {
-                            handleBackNavigation()
-                            totalDrag = 0f
-                        }
-                    }
-                }
-        )
-
-        // 3. Bottom Edge -> Recents (Acción global del sistema con validación de accesibilidad)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(40.dp)
-                .pointerInput(Unit) {
-                    var totalDrag = 0f
-                    detectVerticalDragGestures(
-                        onDragStart = { totalDrag = 0f }
-                    ) { _, dragAmount ->
-                        totalDrag += dragAmount
-                        if (totalDrag < -50f && state.gesturesConfig.bottomSwipeToRecents) {
-                            val opened = com.daybreak.animelauncher.LauncherAccessibilityService.openRecents()
-                            if (!opened) {
-                                Toast.makeText(
-                                    context,
-                                    if (state.language == "es") "Activa el servicio de accesibilidad de NovaLauncher para ver Recientes" else "Enable NovaLauncher accessibility service to view Recents",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                            totalDrag = 0f
-                        }
-                    }
-                }
-        )
 
         // 4. Banner flotante durante Modo Edición de Widgets
         AnimatedVisibility(
