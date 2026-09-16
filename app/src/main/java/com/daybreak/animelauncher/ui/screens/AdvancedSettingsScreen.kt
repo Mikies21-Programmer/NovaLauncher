@@ -378,7 +378,7 @@ fun AdvancedSettingsScreen(
                             title = if (isEs) "Opacidad de Barra Lateral" else "Sidebar Opacity",
                             description = if (isEs) "Transparencia del fondo cristalino" else "Frosted glass transparency",
                             value = currentStyle.sidebarOpacity,
-                            valueRange = 0.10f..1.00f,
+                            valueRange = 0.25f..1.00f,
                             displayValue = "${(currentStyle.sidebarOpacity * 100).toInt()}%",
                             onValueChange = { 
                                 currentStyle = currentStyle.copy(sidebarOpacity = it)
@@ -405,7 +405,7 @@ fun AdvancedSettingsScreen(
                             title = if (isEs) "Opacidad de Barra Diagonal" else "Diagonal Bar Opacity",
                             description = if (isEs) "Transparencia de la barra diagonal" else "Diagonal bar transparency",
                             value = currentStyle.diagonalBarOpacity,
-                            valueRange = 0.10f..1.00f,
+                            valueRange = 0.25f..1.00f,
                             displayValue = "${(currentStyle.diagonalBarOpacity * 100).toInt()}%",
                             onValueChange = { 
                                 currentStyle = currentStyle.copy(diagonalBarOpacity = it)
@@ -446,7 +446,7 @@ fun AdvancedSettingsScreen(
                             title = if (isEs) "Tamaño del Triángulo" else "Triangle Size",
                             description = if (isEs) "Proporción del triángulo respecto al área" else "Triangle proportion relative to area",
                             value = currentStyle.triangleWidth,
-                            valueRange = 0.50f..1.00f,
+                            valueRange = 0.65f..1.00f,
                             displayValue = "${(currentStyle.triangleWidth * 100).toInt()}%",
                             onValueChange = { 
                                 currentStyle = currentStyle.copy(triangleWidth = it)
@@ -458,7 +458,7 @@ fun AdvancedSettingsScreen(
                             title = if (isEs) "Opacidad del Triángulo" else "Triangle Opacity",
                             description = if (isEs) "Transparencia de la forma triangular" else "Triangle shape transparency",
                             value = currentStyle.triangleOpacity,
-                            valueRange = 0.10f..1.00f,
+                            valueRange = 0.25f..1.00f,
                             displayValue = "${(currentStyle.triangleOpacity * 100).toInt()}%",
                             onValueChange = { 
                                 currentStyle = currentStyle.copy(triangleOpacity = it)
@@ -485,7 +485,7 @@ fun AdvancedSettingsScreen(
                             title = if (isEs) "Opacidad de Fondo" else "Background Opacity",
                             description = if (isEs) "Transparencia del cajón de aplicaciones" else "App drawer transparency",
                             value = currentStyle.appDrawerBgOpacity,
-                            valueRange = 0.00f..1.00f,
+                            valueRange = 0.30f..1.00f,
                             displayValue = "${(currentStyle.appDrawerBgOpacity * 100).toInt()}%",
                             onValueChange = { 
                                 currentStyle = currentStyle.copy(appDrawerBgOpacity = it)

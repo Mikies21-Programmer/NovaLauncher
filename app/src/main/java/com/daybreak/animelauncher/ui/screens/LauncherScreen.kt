@@ -138,6 +138,22 @@ fun LauncherScreen(
         }
     }
 
+    // Recolector de acciones de widgets solicitadas desde Settings (UX-06)
+    LaunchedEffect(Unit) {
+        viewModel.widgetActionFlow.collect { action ->
+            when (action) {
+                is LauncherViewModel.WidgetAction.OpenPicker -> {
+                    longPressedPageIndex = action.pageIndex
+                    navState = LauncherNavState.WidgetPicker(action.pageIndex)
+                }
+                LauncherViewModel.WidgetAction.EnterEditMode -> {
+                    isWidgetEditMode = true
+                    navState = LauncherNavState.Home
+                }
+            }
+        }
+    }
+
     // Sincronizar el gestor de fondos de video con la página activa
     LaunchedEffect(pagerState.currentPage) {
         VideoWallpaperManager.onPageSelected(pagerState.currentPage, context)

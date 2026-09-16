@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 
 data class AppShortcut(
     val id: String,
@@ -163,6 +164,23 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun onHomeIntentReceived() {
         _homeActionTrigger.tryEmit(Unit)
+    }
+
+    // Trigger para acciones de widgets iniciadas desde Settings (UX-06)
+    sealed interface WidgetAction {
+        data class OpenPicker(val pageIndex: Int = 0) : WidgetAction
+        data object EnterEditMode : WidgetAction
+    }
+
+    private val _widgetActionChannel = kotlinx.coroutines.channels.Channel<WidgetAction>(kotlinx.coroutines.channels.Channel.BUFFERED)
+    val widgetActionFlow: kotlinx.coroutines.flow.Flow<WidgetAction> = _widgetActionChannel.receiveAsFlow()
+
+    fun requestOpenWidgetPicker(pageIndex: Int = 0) {
+        _widgetActionChannel.trySend(WidgetAction.OpenPicker(pageIndex))
+    }
+
+    fun requestEnterWidgetEditMode() {
+        _widgetActionChannel.trySend(WidgetAction.EnterEditMode)
     }
 
     // Notificaciones no leídas en tiempo real (NotificationListenerService)

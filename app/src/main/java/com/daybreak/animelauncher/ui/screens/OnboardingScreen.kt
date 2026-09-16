@@ -336,12 +336,6 @@ fun DefaultLauncherStep(isEs: Boolean, context: Context, onNext: () -> Unit) {
 
 @Composable
 fun ConfigureAppsStep(isEs: Boolean, viewModel: LauncherViewModel, onNext: () -> Unit) {
-    val apps by viewModel.installedApps.collectAsState()
-    var selectingFor by remember { mutableStateOf<String?>(null) } // "diag_0", "side_0", etc.
-    
-    // Simplification for the tutorial: just pick a few apps or show a message.
-    // Given the complexity of a full app picker, we'll give them a button to skip or do it later.
-    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -350,7 +344,7 @@ fun ConfigureAppsStep(isEs: Boolean, viewModel: LauncherViewModel, onNext: () ->
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (isEs) "Configura tus Atajos" else "Configure your Shortcuts",
+            text = if (isEs) "Atajos y Personalización" else "Shortcuts & Customization",
             color = Color.White,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
@@ -359,9 +353,9 @@ fun ConfigureAppsStep(isEs: Boolean, viewModel: LauncherViewModel, onNext: () ->
         Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = if (isEs) {
-                "Las barras de tu pantalla principal tienen atajos rápidos a tus apps favoritas.\n\nPodrás cambiarlas en cualquier momento dejando presionado sobre la pantalla y entrando a 'Ajustes'."
+                "Tu pantalla principal cuenta con barras diagonales y laterales con accesos rápidos a tus aplicaciones favoritas.\n\nPodrás cambiarlas y personalizarlas en cualquier momento desde Configuración o dejando presionado sobre la pantalla."
             } else {
-                "The bars on your main screen have quick shortcuts to your favorite apps.\n\nYou can change them anytime by long-pressing on the screen and entering 'Settings'."
+                "Your main screen features diagonal and side bars with quick shortcuts to your favorite apps.\n\nYou can change and customize them anytime from Settings or by long-pressing on the screen."
             },
             color = Color.LightGray,
             fontSize = 16.sp,
@@ -390,30 +384,34 @@ fun TutorialStep(isEs: Boolean, onStart: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (isEs) "Cómo usarlo" else "How to use",
+            text = if (isEs) "Cómo usar NovaLauncher" else "How to use NovaLauncher",
             color = Color.White,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
         
-        Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
             TutorialItem(
                 title = if (isEs) "Cajón de Aplicaciones" else "App Drawer",
-                desc = if (isEs) "Desliza hacia arriba o presiona el botón 'A' para ver todas tus apps." else "Swipe up or press the 'A' button to see all your apps."
+                desc = if (isEs) "Desliza hacia arriba desde cualquier punto para ver todas tus aplicaciones instaladas." else "Swipe up from anywhere to see all your installed applications."
             )
             TutorialItem(
-                title = if (isEs) "Personalización Total" else "Total Customization",
-                desc = if (isEs) "Mantén presionado cualquier espacio vacío en la pantalla para cambiar el fondo, colores y más." else "Long press any empty space on the screen to change the background, colors, and more."
+                title = if (isEs) "Cambio entre Páginas" else "Switch Between Pages",
+                desc = if (isEs) "Desliza horizontalmente para alternar entre pantallas con diseños y accesos únicos." else "Swipe horizontally to switch between screens with unique layouts."
             )
             TutorialItem(
-                title = if (isEs) "Iconos y Atajos" else "Icons & Shortcuts",
-                desc = if (isEs) "Dentro de los ajustes, puedes ponerle cualquier imagen a tus apps favoritas." else "Inside settings, you can put any image on your favorite apps."
+                title = if (isEs) "Menú de Personalización" else "Customization Menu",
+                desc = if (isEs) "Mantén presionado cualquier espacio vacío en la pantalla para cambiar el fondo, colores o abrir Ajustes." else "Long press any empty space on the screen to change wallpaper, colors, or open Settings."
+            )
+            TutorialItem(
+                title = if (isEs) "Widgets del Sistema" else "System Widgets",
+                desc = if (isEs) "Mantén presionado en la pantalla y selecciona 'Widgets del sistema' para añadir y configurar widgets nativos." else "Long press on the screen and select 'System widgets' to add and configure native widgets."
             )
         }
         
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(36.dp))
         Button(
             onClick = onStart,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF39FF14)),
@@ -428,8 +426,8 @@ fun TutorialStep(isEs: Boolean, onStart: () -> Unit) {
 @Composable
 fun TutorialItem(title: String, desc: String) {
     Column {
-        Text(title, color = Color(0xFF00F0FF), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = Color(0xFF00F0FF), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(4.dp))
-        Text(desc, color = Color.LightGray, fontSize = 14.sp, lineHeight = 20.sp)
+        Text(desc, color = Color.LightGray, fontSize = 13.sp, lineHeight = 18.sp)
     }
 }

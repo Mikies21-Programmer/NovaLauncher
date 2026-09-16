@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
@@ -201,7 +203,121 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 contentPadding = PaddingValues(bottom = 40.dp)
             ) {
-                // Selector de Idioma / Language Selector (Glass Card)
+                // 1. Fondo de Pantalla y Temas (UX-01)
+                item {
+                    GlassCard {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Image, contentDescription = null, tint = Color(0xFF00F0FF), modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (isEs) "Fondo de Pantalla y Temas" else "Wallpaper & Themes",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color(0xFF00F0FF)
+                                    )
+                                    Text(
+                                        text = if (isEs) "Elige temas cyberpunk predefinidos o fotos y videos de tu galería" else "Choose preset cyberpunk themes or photos/videos from your gallery",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.LightGray
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = Color(0xFF00F0FF).copy(alpha = 0.3f))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                for (i in 0 until state.viewCount) {
+                                    Button(
+                                        onClick = {
+                                            selectedViewIndexForMedia = i
+                                            showBackgroundSelection = true
+                                        },
+                                        colors = if (i == 0) ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF), contentColor = Color.Black)
+                                                 else ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(
+                                            text = if (i == 0) (if (isEs) "🎨 Vista 1 (Principal)" else "🎨 View 1 (Main)")
+                                                   else (if (isEs) "Vista ${i + 1}" else "View ${i + 1}"),
+                                            fontWeight = if (i == 0) FontWeight.Medium else FontWeight.Normal,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Widgets del Sistema (UX-06)
+                item {
+                    GlassCard {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Widgets, contentDescription = null, tint = Color(0xFF00F0FF), modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (isEs) "Widgets del Sistema" else "System Widgets",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color(0xFF00F0FF)
+                                    )
+                                    Text(
+                                        text = if (isEs) "Añade reproductores, notas, clima o utilidades nativas a tus pantallas" else "Add native media players, notes, weather or utilities to screens",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.LightGray
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = Color(0xFF00F0FF).copy(alpha = 0.3f))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        viewModel.requestOpenWidgetPicker(0)
+                                        onBack()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF), contentColor = Color.Black),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(if (isEs) "+ Añadir Widget" else "+ Add Widget", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                                }
+                                Button(
+                                    onClick = {
+                                        viewModel.requestEnterWidgetEditMode()
+                                        onBack()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(if (isEs) "Gestionar / Eliminar" else "Manage / Remove", fontWeight = FontWeight.Normal, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Selector de Idioma / Language Selector (Glass Card)
                 item {
                     GlassCard {
                         Row(
@@ -248,7 +364,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // --- GESTOS Y NAVEGACIÓN ---
+                // 4. --- GESTOS Y NAVEGACIÓN (Solo gestos implementados: UX-02, UX-08) ---
                 item {
                     GlassCard {
                         Column(
@@ -268,8 +384,8 @@ fun SettingsScreen(
 
                             val gc = state.gesturesConfig
                             GestureToggle(
-                                title = if (isEs) "Modo Inmersivo (Sin botones)" else "Immersive Mode (Hide navbar)",
-                                subtitle = if (isEs) "Oculta los botones del sistema (Triángulo, Círculo, Cuadrado)" else "Hides system navigation buttons",
+                                title = if (isEs) "Modo Inmersivo (Barra de Gestos)" else "Immersive Mode (Gesture Bar)",
+                                subtitle = if (isEs) "Oculta la barra de gestos en navegación por gestos. En modo de 3 botones, los botones del sistema se mantienen visibles sobre transparencia." else "Hides gesture pill in gesture navigation. In 3-button mode, system buttons remain visible over transparency.",
                                 checked = gc.immersiveMode,
                                 onCheckedChange = { viewModel.updateGesturesConfig(gc.copy(immersiveMode = it)) }
                             )
@@ -281,21 +397,9 @@ fun SettingsScreen(
                             )
                             GestureToggle(
                                 title = if (isEs) "Deslizar para Notificaciones" else "Swipe for Notifications",
-                                subtitle = if (isEs) "Desliza hacia abajo para abrir notificaciones" else "Swipe down to open notifications",
+                                subtitle = if (isEs) "Desliza hacia abajo en el escritorio para abrir notificaciones" else "Swipe down on desktop to open notifications",
                                 checked = gc.swipeDownForNotifications,
                                 onCheckedChange = { viewModel.updateGesturesConfig(gc.copy(swipeDownForNotifications = it)) }
-                            )
-                            GestureToggle(
-                                title = if (isEs) "Deslizar lateral para Atrás" else "Edge swipe to Go Back",
-                                subtitle = if (isEs) "Desliza desde el borde lateral hacia el centro" else "Swipe from screen edge to center",
-                                checked = gc.edgeSwipeToBack,
-                                onCheckedChange = { viewModel.updateGesturesConfig(gc.copy(edgeSwipeToBack = it)) }
-                            )
-                            GestureToggle(
-                                title = if (isEs) "Deslizar para Multitarea" else "Bottom swipe to Recents",
-                                subtitle = if (isEs) "Desliza desde el borde inferior hacia arriba" else "Swipe up from bottom edge",
-                                checked = gc.bottomSwipeToRecents,
-                                onCheckedChange = { viewModel.updateGesturesConfig(gc.copy(bottomSwipeToRecents = it)) }
                             )
                             GestureToggle(
                                 title = if (isEs) "Pellizcar para Ajustes" else "Pinch In for Settings",
