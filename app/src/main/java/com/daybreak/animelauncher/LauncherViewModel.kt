@@ -116,7 +116,9 @@ data class DrawerConfig(
 data class GesturesConfig(
     val doubleTapToSleep: Boolean = true,
     val swipeDownForNotifications: Boolean = true,
+    @Deprecated("Legacy field preserved for SharedPreferences/Gson backwards compatibility")
     val edgeSwipeToBack: Boolean = true,
+    @Deprecated("Legacy field preserved for SharedPreferences/Gson backwards compatibility")
     val bottomSwipeToRecents: Boolean = true,
     val pinchInForSettings: Boolean = true,
     val immersiveMode: Boolean = true

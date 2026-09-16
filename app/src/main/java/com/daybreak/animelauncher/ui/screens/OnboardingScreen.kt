@@ -386,13 +386,13 @@ fun TutorialStep(isEs: Boolean, onStart: () -> Unit) {
         Text(
             text = if (isEs) "Cómo usar NovaLauncher" else "How to use NovaLauncher",
             color = Color.White,
-            fontSize = 28.sp,
+            fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         
-        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             TutorialItem(
                 title = if (isEs) "Cajón de Aplicaciones" else "App Drawer",
                 desc = if (isEs) "Desliza hacia arriba desde cualquier punto para ver todas tus aplicaciones instaladas." else "Swipe up from anywhere to see all your installed applications."
@@ -409,14 +409,22 @@ fun TutorialStep(isEs: Boolean, onStart: () -> Unit) {
                 title = if (isEs) "Widgets del Sistema" else "System Widgets",
                 desc = if (isEs) "Mantén presionado en la pantalla y selecciona 'Widgets del sistema' para añadir y configurar widgets nativos." else "Long press on the screen and select 'System widgets' to add and configure native widgets."
             )
+            TutorialItem(
+                title = if (isEs) "Doble Toque para Apagar" else "Double Tap to Sleep",
+                desc = if (isEs) "Toca dos veces sobre un espacio libre del escritorio para bloquear la pantalla (requiere activar el servicio de accesibilidad de NovaLauncher)." else "Double tap on empty desktop space to lock screen (requires enabling NovaLauncher accessibility service)."
+            )
+            TutorialItem(
+                title = if (isEs) "Deslizar para Notificaciones" else "Swipe for Notifications",
+                desc = if (isEs) "Desliza hacia abajo en el escritorio para desplegar el panel de notificaciones del sistema." else "Swipe down on desktop to expand system notifications panel."
+            )
         }
         
-        Spacer(modifier = Modifier.height(36.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         Button(
             onClick = onStart,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF39FF14)),
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().height(56.dp)
+            modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
             Text(if (isEs) "¡Comenzar!" else "Let's Go!", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }

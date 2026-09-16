@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -73,6 +74,7 @@ fun LauncherScreen(
     var isWidgetEditMode by remember { mutableStateOf(false) }
     var longPressedPageIndex by remember { mutableStateOf(0) }
     var allocatedWidgetId by remember { mutableStateOf<Int?>(null) }
+    var widgetContainerBounds by remember { mutableStateOf<Rect?>(null) }
     val installedApps by viewModel.installedApps.collectAsState()
 
     val pagerState = rememberPagerState(pageCount = { state.viewCount })
@@ -293,9 +295,18 @@ fun LauncherScreen(
                             while (!event.changes.any { it.pressed }) {
                                 event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                             }
+                            val downChange = event.changes.firstOrNull { it.pressed }
+                            var isTracking = true
+
+                            // PR-01: Si el toque inicial ocurre sobre el contenedor dinámico de widgets nativos,
+                            // no secuestrar el gesto vertical para permitir el scroll natural del widget o LazyColumn.
+                            // Límites obtenidos dinámicamente mediante onGloballyPositioned (cero coordenadas fijas).
+                            if (downChange != null && widgetContainerBounds?.contains(downChange.position) == true) {
+                                isTracking = false
+                            }
+
                             var totalX = 0f
                             var totalY = 0f
-                            var isTracking = true
                             while (isTracking) {
                                 event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                                 val change = event.changes.firstOrNull()
@@ -312,14 +323,20 @@ fun LauncherScreen(
                                         isTracking = false
                                     } else if (kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.2f) {
                                         if (totalY < -80f) {
+                                            change.consume()
                                             navState = LauncherNavState.InDrawer.Main
                                             isTracking = false
                                         } else if (totalY > 80f && state.gesturesConfig.swipeDownForNotifications) {
+                                            change.consume()
                                             expandStatusBar(context)
                                             isTracking = false
                                         }
                                     }
                                 }
+                            }
+                            // Esperar a que se liberen todos los punteros antes del siguiente ciclo de detección
+                            while (event.changes.any { it.pressed }) {
+                                event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                             }
                         }
                     }
@@ -351,12 +368,12 @@ fun LauncherScreen(
                 if (!locked) {
                     Toast.makeText(
                         context,
-                        if (state.language == "es") "Activa el servicio de accesibilidad de NovaLauncher para apagar la pantalla" else "Enable NovaLauncher accessibility service to lock screen",
+                        if (state.language == "es") "Activa el Servicio de Accesibilidad para apagar pantalla" else "Enable Accessibility Service to turn off screen",
                         Toast.LENGTH_LONG
                     ).show()
                     try {
                         val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         context.startActivity(intent)
                     } catch (e: Exception) {
@@ -380,6 +397,7 @@ fun LauncherScreen(
                 showUI = (navState !is LauncherNavState.InDrawer),
                 isEditMode = isWidgetEditMode,
                 onEnterEditMode = { isWidgetEditMode = true },
+                onWidgetContainerPositioned = { if (pagerState.currentPage == page) widgetContainerBounds = it },
                 modifier = modifier
             )
         } else {
@@ -395,6 +413,7 @@ fun LauncherScreen(
                 showUI = (navState !is LauncherNavState.InDrawer),
                 isEditMode = isWidgetEditMode,
                 onEnterEditMode = { isWidgetEditMode = true },
+                onWidgetContainerPositioned = { if (pagerState.currentPage == page) widgetContainerBounds = it },
                 modifier = modifier
             )
         }

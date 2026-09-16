@@ -36,6 +36,9 @@ import com.daybreak.animelauncher.ui.components.RealTimeBattery
 import com.daybreak.animelauncher.ui.components.RealTimeClock
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
 import com.daybreak.animelauncher.ui.theme.parseColorSafe
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,6 +56,7 @@ fun ViewOne(
     showUI: Boolean = true,
     isEditMode: Boolean = false,
     onEnterEditMode: () -> Unit = {},
+    onWidgetContainerPositioned: ((Rect?) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -133,7 +137,10 @@ fun ViewOne(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(end = sidebarWidth + 16.dp, start = 16.dp, top = 40.dp, bottom = (h * 0.32f)),
+                    .padding(end = sidebarWidth + 16.dp, start = 16.dp, top = 40.dp, bottom = (h * 0.32f))
+                    .onGloballyPositioned { coordinates ->
+                        onWidgetContainerPositioned?.invoke(coordinates.boundsInRoot())
+                    },
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(config.nativeWidgetIds) { widgetId ->
@@ -147,6 +154,10 @@ fun ViewOne(
                         }
                     )
                 }
+            }
+        } else {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                onWidgetContainerPositioned?.invoke(null)
             }
         }
 
