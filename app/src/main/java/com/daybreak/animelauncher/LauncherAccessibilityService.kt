@@ -26,6 +26,10 @@ class LauncherAccessibilityService : AccessibilityService() {
             }
         }
         
+        fun openNotifications(): Boolean {
+            return instance?.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS) ?: false
+        }
+
         fun goBack(): Boolean {
             return instance?.performGlobalAction(GLOBAL_ACTION_BACK) ?: false
         }

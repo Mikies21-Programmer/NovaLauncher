@@ -15,7 +15,10 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +59,7 @@ fun ViewOne(
     showUI: Boolean = true,
     isEditMode: Boolean = false,
     onEnterEditMode: () -> Unit = {},
-    onWidgetContainerPositioned: ((Rect?) -> Unit)? = null,
+    onWidgetBoundsChanged: ((List<Rect>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -134,30 +137,49 @@ fun ViewOne(
 
         // Native Android AppWidgets container
         if (viewModel != null && config.nativeWidgetIds.isNotEmpty()) {
+            val widgetBoundsMap = remember { mutableStateMapOf<Int, Rect>() }
+
+            DisposableEffect(config.nativeWidgetIds) {
+                widgetBoundsMap.keys.retainAll(config.nativeWidgetIds.toSet())
+                val activeBounds = config.nativeWidgetIds.mapNotNull { widgetBoundsMap[it] }
+                onWidgetBoundsChanged?.invoke(activeBounds)
+                onDispose { }
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(end = sidebarWidth + 16.dp, start = 16.dp, top = 40.dp, bottom = (h * 0.32f))
-                    .onGloballyPositioned { coordinates ->
-                        onWidgetContainerPositioned?.invoke(coordinates.boundsInRoot())
-                    },
+                    .padding(end = sidebarWidth + 16.dp, start = 16.dp, top = 40.dp, bottom = (h * 0.32f)),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(config.nativeWidgetIds) { widgetId ->
-                    NativeWidgetView(
-                        appWidgetId = widgetId,
-                        widgetHostManager = viewModel.widgetHostManager,
-                        isEditMode = isEditMode,
-                        onEnterEditMode = onEnterEditMode,
-                        onDelete = {
-                            viewModel.removeNativeWidget(viewIndex, widgetId)
-                        }
-                    )
+                items(config.nativeWidgetIds, key = { it }) { widgetId ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { coordinates ->
+                                widgetBoundsMap[widgetId] = coordinates.boundsInRoot()
+                                val activeBounds = config.nativeWidgetIds.mapNotNull { widgetBoundsMap[it] }
+                                onWidgetBoundsChanged?.invoke(activeBounds)
+                            }
+                    ) {
+                        NativeWidgetView(
+                            appWidgetId = widgetId,
+                            widgetHostManager = viewModel.widgetHostManager,
+                            isEditMode = isEditMode,
+                            onEnterEditMode = onEnterEditMode,
+                            onDelete = {
+                                widgetBoundsMap.remove(widgetId)
+                                val activeBounds = config.nativeWidgetIds.filter { it != widgetId }.mapNotNull { widgetBoundsMap[it] }
+                                onWidgetBoundsChanged?.invoke(activeBounds)
+                                viewModel.removeNativeWidget(viewIndex, widgetId)
+                            }
+                        )
+                    }
                 }
             }
         } else {
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                onWidgetContainerPositioned?.invoke(null)
+            LaunchedEffect(Unit) {
+                onWidgetBoundsChanged?.invoke(emptyList())
             }
         }
 

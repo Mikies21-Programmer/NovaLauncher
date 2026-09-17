@@ -23,7 +23,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -74,11 +73,18 @@ fun LauncherScreen(
     var isWidgetEditMode by remember { mutableStateOf(false) }
     var longPressedPageIndex by remember { mutableStateOf(0) }
     var allocatedWidgetId by remember { mutableStateOf<Int?>(null) }
-    var widgetContainerBounds by remember { mutableStateOf<Rect?>(null) }
+    val pageWidgetBoundsMap = remember { mutableStateMapOf<Int, List<Rect>>() }
     val installedApps by viewModel.installedApps.collectAsState()
 
     val pagerState = rememberPagerState(pageCount = { state.viewCount })
     val coroutineScope = rememberCoroutineScope()
+
+    val currentNavState by rememberUpdatedState(navState)
+    val currentWidgetBoundsList by rememberUpdatedState(pageWidgetBoundsMap[pagerState.currentPage] ?: emptyList())
+    val currentWidgetEditMode by rememberUpdatedState(isWidgetEditMode)
+    val currentPinchEnabled by rememberUpdatedState(state.gesturesConfig.pinchInForSettings)
+    val currentSwipeDownEnabled by rememberUpdatedState(state.gesturesConfig.swipeDownForNotifications)
+    val currentLanguage by rememberUpdatedState(state.language)
 
     fun handleBackNavigation(): Boolean {
         if (isWidgetEditMode) {
@@ -120,10 +126,8 @@ fun LauncherScreen(
     // 2. Cerrar diálogo / menú
     // 3. Cerrar App Drawer
     // 4. Regresar a pantalla principal (página 0)
-    // 5. Si ya está en Home Página 0, deshabilitar BackHandler para no bloquear al sistema ni a Predictive Back
-    val canGoBack = isWidgetEditMode || navState !is LauncherNavState.Home || pagerState.currentPage != 0
-
-    androidx.activity.compose.BackHandler(enabled = canGoBack) {
+    // 5. Si ya está en Home Página 0, permanecer en Home consumiendo el evento sin disparar transiciones de salida
+    androidx.activity.compose.BackHandler(enabled = true) {
         handleBackNavigation()
     }
 
@@ -295,13 +299,27 @@ fun LauncherScreen(
                             while (!event.changes.any { it.pressed }) {
                                 event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                             }
+
+                            // Si al inicio hay 2 o más dedos pulsados, cancelar inmediatamente el swipe vertical
+                            // para permitir que el detector de pinch o gestos multitáctiles procese el evento sin interferencia.
+                            if (event.changes.count { it.pressed } >= 2) {
+                                while (event.changes.any { it.pressed }) {
+                                    event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                }
+                                continue
+                            }
+
                             val downChange = event.changes.firstOrNull { it.pressed }
                             var isTracking = true
 
-                            // PR-01: Si el toque inicial ocurre sobre el contenedor dinámico de widgets nativos,
-                            // no secuestrar el gesto vertical para permitir el scroll natural del widget o LazyColumn.
-                            // Límites obtenidos dinámicamente mediante onGloballyPositioned (cero coordenadas fijas).
-                            if (downChange != null && widgetContainerBounds?.contains(downChange.position) == true) {
+                            // Mientras isWidgetEditMode sea true, ignorar gestos verticales del launcher (Drawer / Notificaciones)
+                            if (currentWidgetEditMode) {
+                                isTracking = false
+                            }
+
+                            // PR-01 / 4B-01: Si el toque inicial ocurre sobre la región física real de un widget nativo,
+                            // no secuestrar el gesto vertical para permitir el scroll natural o interacción del widget.
+                            if (downChange != null && currentWidgetBoundsList.any { it.contains(downChange.position) }) {
                                 isTracking = false
                             }
 
@@ -309,6 +327,13 @@ fun LauncherScreen(
                             var totalY = 0f
                             while (isTracking) {
                                 event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+
+                                // Cancelar tracking vertical si se añade un segundo dedo (inicio diferido de pinch)
+                                if (event.changes.count { it.pressed } >= 2) {
+                                    isTracking = false
+                                    break
+                                }
+
                                 val change = event.changes.firstOrNull()
                                 if (change == null || !change.pressed) {
                                     isTracking = false
@@ -326,9 +351,9 @@ fun LauncherScreen(
                                             change.consume()
                                             navState = LauncherNavState.InDrawer.Main
                                             isTracking = false
-                                        } else if (totalY > 80f && state.gesturesConfig.swipeDownForNotifications) {
+                                        } else if (totalY > 80f && currentSwipeDownEnabled) {
                                             change.consume()
-                                            expandStatusBar(context)
+                                            openNotificationsWithFallback(context, currentLanguage)
                                             isTracking = false
                                         }
                                     }
@@ -341,10 +366,70 @@ fun LauncherScreen(
                         }
                     }
                 }
+                // 4B-01: Gesto de pellizco hacia adentro (Pinch-in) para abrir Settings.
+                // Detector aislado de dos dedos con cálculo de zoom acumulado, umbral de 25% (0.75f),
+                // exclusión de regiones físicas de widgets (PR-01/4B-01), verificación de estado raíz (LauncherNavState.Home),
+                // disparo único por gesto y reinicio al liberar todos los punteros.
                 .pointerInput(Unit) {
-                    detectTransformGestures { _, _, zoom, _ ->
-                        if (state.gesturesConfig.pinchInForSettings && zoom < 0.9f) {
-                            onNavigateToSettings()
+                    awaitPointerEventScope {
+                        while (true) {
+                            var event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                            val pressedPointers = event.changes.filter { it.pressed }
+                            if (pressedPointers.size >= 2) {
+                                val p1 = pressedPointers[0]
+                                val p2 = pressedPointers[1]
+                                val id1 = p1.id
+                                val id2 = p2.id
+
+                                val boundsList = currentWidgetBoundsList
+                                // Si ambos dedos comenzaron dentro de regiones físicas de widgets,
+                                // no capturar pinch (el usuario está interactuando con el contenido del widget).
+                                val bothStartedInWidget = boundsList.isNotEmpty() &&
+                                    boundsList.any { it.contains(p1.position) } &&
+                                    boundsList.any { it.contains(p2.position) }
+
+                                val isRoot = (currentNavState == LauncherNavState.Home)
+                                val initialDistance = kotlin.math.hypot(
+                                    p1.position.x - p2.position.x,
+                                    p1.position.y - p2.position.y
+                                )
+                                val minInitialSpan = 60f // Evitar ruidos con dedos pegados
+
+                                var hasTriggered = false
+
+                                while (true) {
+                                    event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                    val activeChanges = event.changes.filter { it.pressed }
+                                    if (activeChanges.size < 2) {
+                                        break
+                                    }
+
+                                    val change1 = activeChanges.find { it.id == id1 }
+                                    val change2 = activeChanges.find { it.id == id2 }
+
+                                    if (change1 != null && change2 != null && initialDistance > minInitialSpan) {
+                                        val currentDistance = kotlin.math.hypot(
+                                            change1.position.x - change2.position.x,
+                                            change1.position.y - change2.position.y
+                                        )
+                                        val cumulativeZoom = currentDistance / initialDistance
+
+                                        // Umbral: reducción de al menos 25% respecto a la distancia inicial (zoom < 0.75f).
+                                        // Mientras isWidgetEditMode sea true, no capturar pinch ni abrir Settings.
+                                        if (!hasTriggered && !bothStartedInWidget && !currentWidgetEditMode && isRoot && currentPinchEnabled && cumulativeZoom < 0.75f) {
+                                            hasTriggered = true
+                                            change1.consume()
+                                            change2.consume()
+                                            onNavigateToSettings()
+                                        }
+                                    }
+                                }
+
+                                // Esperar a que se liberen todos los punteros antes de permitir un nuevo gesto
+                                while (event.changes.any { it.pressed }) {
+                                    event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                }
+                            }
                         }
                     }
                 }
@@ -397,7 +482,7 @@ fun LauncherScreen(
                 showUI = (navState !is LauncherNavState.InDrawer),
                 isEditMode = isWidgetEditMode,
                 onEnterEditMode = { isWidgetEditMode = true },
-                onWidgetContainerPositioned = { if (pagerState.currentPage == page) widgetContainerBounds = it },
+                onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
                 modifier = modifier
             )
         } else {
@@ -413,7 +498,7 @@ fun LauncherScreen(
                 showUI = (navState !is LauncherNavState.InDrawer),
                 isEditMode = isWidgetEditMode,
                 onEnterEditMode = { isWidgetEditMode = true },
-                onWidgetContainerPositioned = { if (pagerState.currentPage == page) widgetContainerBounds = it },
+                onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
                 modifier = modifier
             )
         }
@@ -835,13 +920,25 @@ fun LauncherScreen(
     }
 }
 
-fun expandStatusBar(context: Context) {
-    try {
-        val statusBarService = context.getSystemService("statusbar")
-        val statusBarManager = Class.forName("android.app.StatusBarManager")
-        val expand = statusBarManager.getMethod("expandNotificationsPanel")
-        expand.invoke(statusBarService)
-    } catch (e: Exception) {
-        e.printStackTrace()
+fun openNotificationsWithFallback(context: Context, language: String = "es") {
+    val opened = com.daybreak.animelauncher.LauncherAccessibilityService.openNotifications()
+    if (!opened) {
+        Toast.makeText(
+            context,
+            if (language == "es") "Activa el Servicio de Accesibilidad para abrir notificaciones" else "Enable Accessibility Service to open notifications",
+            Toast.LENGTH_LONG
+        ).show()
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
+}
+
+fun expandStatusBar(context: Context) {
+    openNotificationsWithFallback(context)
 }

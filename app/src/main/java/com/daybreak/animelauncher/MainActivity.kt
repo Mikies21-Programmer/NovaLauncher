@@ -181,7 +181,11 @@ class MainActivity : ComponentActivity() {
                         composable("launcher") {
                             LauncherScreen(
                                 viewModel = viewModel,
-                                onNavigateToSettings = { navController.navigate("settings") }
+                                onNavigateToSettings = {
+                                    navController.navigate("settings") {
+                                        launchSingleTop = true
+                                    }
+                                }
                             )
                         }
                         composable("settings") {
