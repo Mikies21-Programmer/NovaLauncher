@@ -14,4 +14,11 @@
     <string name="settings_accessibility_card_inactive">Required to lock screen with double tap and open notifications by swiping.</string>
     <string name="settings_accessibility_btn_active">Settings</string>
     <string name="settings_accessibility_btn_inactive">Enable service</string>
+
+    <!-- Settings Screen About & Privacy Strings (EN) -->
+    <string name="settings_about_card_title">Information &amp; Privacy</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_privacy_policy_title">Privacy Policy</string>
+    <string name="settings_privacy_policy_desc">Learn how NovaLauncher protects your data and privacy</string>
+    <string name="settings_privacy_policy_btn">View policy</string>
 </resources>

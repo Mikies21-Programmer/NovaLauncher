@@ -14,4 +14,11 @@
     <string name="settings_accessibility_card_inactive">Requerido para bloquear la pantalla con doble toque y abrir notificaciones deslizando.</string>
     <string name="settings_accessibility_btn_active">Ajustes</string>
     <string name="settings_accessibility_btn_inactive">Activar servicio</string>
+
+    <!-- Settings Screen About & Privacy Strings (ES) -->
+    <string name="settings_about_card_title">Información y Privacidad</string>
+    <string name="settings_about_version">Versión %1$s</string>
+    <string name="settings_privacy_policy_title">Política de Privacidad</string>
+    <string name="settings_privacy_policy_desc">Consulta cómo NovaLauncher protege tus datos y privacidad</string>
+    <string name="settings_privacy_policy_btn">Ver política</string>
 </resources>

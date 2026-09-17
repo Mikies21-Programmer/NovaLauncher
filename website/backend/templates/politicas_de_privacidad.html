@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Legal y Privacidad - AuraLauncher{% endblock %}
+{% block title %}Legal y Privacidad - NovaLauncher{% endblock %}
 
 {% block head %}
 <style>
@@ -54,14 +54,23 @@
     }
     
     .legal-section h2 {
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-        color: var(--accent-purple);
+        font-size: 1.4rem;
+        margin-bottom: 0.8rem;
+        margin-top: 1.5rem;
+        color: var(--accent-cyan);
+    }
+
+    .legal-section h3 {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+        margin-top: 1rem;
+        color: #FFFFFF;
     }
     
     .legal-section p {
         color: var(--text-muted);
         margin-bottom: 1rem;
+        line-height: 1.6;
     }
     
     .legal-section ul {
@@ -98,98 +107,112 @@
 {% block content %}
 <section class="page-header">
     <h2>Centro <span class="gradient-text">Legal y de Privacidad</span></h2>
-    <p>Transparencia total sobre tus datos y permisos.</p>
+    <p>Transparencia total sobre tus datos y permisos en NovaLauncher.</p>
 </section>
 
 <div class="legal-nav">
     <div class="legal-tab active" onclick="switchLegalTab('privacy', this)">Política de Privacidad</div>
-    <div class="legal-tab" onclick="switchLegalTab('permissions', this)">Permisos de la App</div>
+    <div class="legal-tab" onclick="switchLegalTab('permissions', this)">Permisos y Servicios</div>
     <div class="legal-tab" onclick="switchLegalTab('terms', this)">Términos de Servicio</div>
 </div>
 
 <!-- Política de Privacidad -->
 <div id="privacy" class="legal-content active legal-section">
     <h1>Política de <span class="gradient-text">Privacidad</span></h1>
-    <p style="text-align: center;"><strong>Última actualización: Agosto de 2026</strong></p>
+    <p style="text-align: center;"><strong>Última actualización: 17 de septiembre de 2026</strong> | Versión 1.4 (<code>com.daybreak.animelauncher</code>)</p>
     
     <div class="glass-panel glass-card-content">
-        <h2>1. Introducción</h2>
-        <p>En <strong>AuraLauncher</strong> nos tomamos tu privacidad muy en serio. Esta política explica cómo manejamos tu información al utilizar nuestra aplicación de inicio (launcher) para Android.</p>
+        <h2>1. Identificación y Filosofía</h2>
+        <p>En <strong>NovaLauncher</strong> nos tomamos la privacidad como un principio central. NovaLauncher opera de manera local en tu dispositivo (offline-first). No recopilamos, transmitimos, ni almacenamos datos personales en servidores externos.</p>
         
-        <h2>2. Recopilación de Datos</h2>
-        <p><strong style="color: white;">No recopilamos, transmitimos, ni almacenamos datos personales en servidores externos.</strong></p>
-        <p>Nuestra filosofía es que tu dispositivo es tuyo. Toda la configuración visual, preferencias de temas, disposición de aplicaciones e imágenes seleccionadas como fondo de pantalla se procesan y almacenan única y exclusivamente de manera local en tu dispositivo móvil mediante preferencias compartidas (SharedPreferences).</p>
+        <h2>2. Naturaleza del Procesamiento</h2>
+        <p>No se requieren cuentas de usuario ni inicio de sesión. Toda la configuración estética, citas y disposición de aplicaciones se almacena de forma privada en el dispositivo (SharedPreferences). Conforme a Google Play Data Safety, NovaLauncher no recopila ni comparte datos de usuario.</p>
         
-        <h2>3. Uso de la Información</h2>
-        <p>La aplicación utiliza información del sistema operativo estrictamente para brindar sus funcionalidades principales:</p>
+        <h2>3. Servicio de Accesibilidad (AccessibilityService)</h2>
+        <p>NovaLauncher incluye <code>LauncherAccessibilityService</code> de forma <strong>completamente opcional</strong> exclusivamente para permitir gestos de navegación:</p>
         <ul>
-            <li>Mostrar la lista de aplicaciones instaladas.</li>
-            <li>Renderizar widgets en el escritorio.</li>
-            <li>Acceder a los medios para aplicar fondos de pantalla.</li>
+            <li><strong>Doble toque:</strong> Bloquear/apagar la pantalla (<code>GLOBAL_ACTION_LOCK_SCREEN</code>).</li>
+            <li><strong>Deslizar hacia abajo:</strong> Desplegar el panel de notificaciones (<code>GLOBAL_ACTION_NOTIFICATIONS</code>).</li>
+        </ul>
+        <p>El servicio tiene configurado <code>canRetrieveWindowContent="false"</code>. <strong>No inspecciona ni lee contenido de pantalla</strong> de otras aplicaciones, no captura texto ni pulsaciones y no registra ni transmite eventos de accesibilidad.</p>
+
+        <h2>4. Acceso a Notificaciones (NotificationListenerService)</h2>
+        <p>Se utiliza exclusivamente para mostrar un contador numérico de aplicaciones con mensajes pendientes:</p>
+        <ul>
+            <li>Solo inspecciona metadatos mínimos (<code>packageName</code>, <code>category</code> y <code>isOngoing</code>) para identificar mensajería y descartar llamadas activas o perdidas.</li>
+            <li><strong>No accede al contenido del mensaje</strong>, ni texto, ni remitente, ni adjuntos.</li>
+            <li>Procesamiento efímero en memoria RAM sin almacenamiento en disco ni transmisión fuera del dispositivo.</li>
         </ul>
 
-        <h2>4. Terceros</h2>
-        <p>AuraLauncher no incluye SDKs de rastreo (trackers), anuncios ni servicios de analíticas de terceros. Es una aplicación independiente y libre de recolección de métricas.</p>
+        <h2>5. Medios, Fondos e Iconos</h2>
+        <p>Se utiliza el Storage Access Framework (SAF) de Android mediante selectores del sistema. Solo se guarda el URI local con permisos de lectura. Las imágenes y videos nunca se envían fuera del dispositivo.</p>
+
+        <h2>6. Conectividad y Terceros</h2>
+        <p>NovaLauncher no cuenta con servidores externos, ni incluye SDKs de analítica (sin Google Analytics ni Firebase), ni crash reporting (sin Crashlytics ni Sentry), ni publicidad (sin AdMob ni redes publicitarias).</p>
+
+        <h2>7. Contacto</h2>
+        <p>Para consultas sobre privacidad, comuníquese con el desarrollador en: <code>[CORREO DE CONTACTO DEL DESARROLLADOR]</code></p>
     </div>
 </div>
 
 <!-- Permisos de la App -->
 <div id="permissions" class="legal-content legal-section">
-    <h1>Permisos de la <span class="gradient-text">Aplicación</span></h1>
-    <p style="text-align: center; max-width: 800px; margin: 0 auto 2rem;">Para funcionar correctamente y ofrecer una experiencia completa, AuraLauncher requiere los siguientes permisos de Android. Ninguno de estos permisos se utiliza para extraer información de tu dispositivo.</p>
+    <h1>Permisos y <span class="gradient-text">Servicios</span></h1>
+    <p style="text-align: center; max-width: 800px; margin: 0 auto 2rem;">NovaLauncher opera bajo el principio de mínimo privilegio. A continuación se detallan los servicios y permisos utilizados por la aplicación:</p>
     
     <div class="glass-panel glass-card-content">
-        <span class="permission-badge">QUERY_ALL_PACKAGES</span>
-        <h2>Acceso a las aplicaciones instaladas</h2>
-        <p>Al ser un Launcher (lanzador de aplicaciones), el sistema central de la app necesita conocer qué aplicaciones tienes instaladas para poder mostrarlas en el "Cajón de Aplicaciones" y permitirte lanzarlas o categorizarlas.</p>
+        <span class="permission-badge">BIND_ACCESSIBILITY_SERVICE</span>
+        <h2>Servicio de Accesibilidad (Opcional)</h2>
+        <p>Permite al usuario apagar la pantalla con doble toque y abrir notificaciones deslizando hacia abajo. No lee pantalla ni recopila datos.</p>
     </div>
 
     <div class="glass-panel glass-card-content">
-        <span class="permission-badge">READ_EXTERNAL_STORAGE / READ_MEDIA_*</span>
-        <h2>Acceso a archivos multimedia</h2>
-        <p>Se requiere este permiso exclusivamente para permitirte seleccionar imágenes o videos personales desde la galería de tu dispositivo para utilizarlos como fondos de pantalla dinámicos en la pantalla de inicio.</p>
+        <span class="permission-badge">BIND_NOTIFICATION_LISTENER_SERVICE</span>
+        <h2>Servicio de Notificaciones (Opcional)</h2>
+        <p>Permite contabilizar de forma efímera en memoria RAM cuántas apps de mensajería tienen notificaciones activas. No accede al texto ni remitente de las notificaciones.</p>
     </div>
 
     <div class="glass-panel glass-card-content">
         <span class="permission-badge">BIND_APPWIDGET</span>
-        <h2>Vinculación de Widgets</h2>
-        <p>Este permiso de sistema es obligatorio para cualquier lanzador que desee mostrar widgets (como el clima, relojes, calendario, etc.) desarrollados por otras aplicaciones en la pantalla principal.</p>
+        <h2>Alojamiento de Widgets Nativos</h2>
+        <p>Permite al usuario vincular y mostrar widgets de Android en la pantalla de inicio. NovaLauncher actúa únicamente como anfitrión visual.</p>
+    </div>
+
+    <div class="glass-panel glass-card-content">
+        <span class="permission-badge">SET_WALLPAPER</span>
+        <h2>Fondo de Pantalla del Sistema</h2>
+        <p>Permite sincronizar el fondo configurado en NovaLauncher con la vista previa del sistema en la pantalla de multitarea.</p>
     </div>
 </div>
 
 <!-- Términos de Servicio -->
 <div id="terms" class="legal-content legal-section">
     <h1>Términos de <span class="gradient-text">Servicio</span></h1>
-    <p style="text-align: center; margin-bottom: 2rem;">Al instalar y utilizar AuraLauncher, aceptas estos términos de carácter legal.</p>
+    <p style="text-align: center; margin-bottom: 2rem;">Al instalar y utilizar NovaLauncher, aceptas estos términos.</p>
     
     <div class="glass-panel glass-card-content">
         <h2>1. Licencia de Uso</h2>
-        <p>Se te otorga una licencia personal, no exclusiva e intransferible para utilizar AuraLauncher en tus dispositivos Android con fines personales y no comerciales.</p>
+        <p>Se otorga una licencia personal, no exclusiva e intransferible para utilizar NovaLauncher en tus dispositivos Android con fines personales y no comerciales.</p>
 
         <h2>2. Propiedad Intelectual</h2>
-        <p>El código base, estructura visual, y diseño arquitectónico son propiedad intelectual del desarrollador de AuraLauncher. El usuario mantiene los derechos sobre las imágenes y medios que decida importar como fondos de pantalla.</p>
+        <p>El código base, estructura visual y diseño son propiedad del desarrollador de NovaLauncher. El usuario mantiene todos los derechos sobre las imágenes y videos que seleccione como fondos o iconos personales.</p>
 
         <h2>3. Exención de Garantías (As-Is)</h2>
-        <p>El software se proporciona "tal cual", sin garantía de ningún tipo, expresa o implícita. En ningún caso el autor será responsable por cualquier reclamo, daño o responsabilidad (incluyendo pérdida de datos o interrupción del dispositivo) derivados del uso de este software.</p>
+        <p>El software se proporciona "tal cual", sin garantías de ningún tipo, expresas o implícitas.</p>
 
         <h2>4. Cambios en los Términos</h2>
-        <p>Nos reservamos el derecho de modificar o reemplazar estas Políticas o Términos en cualquier momento. Cualquier actualización mayor será notificada a través de una nota en las configuraciones de la aplicación.</p>
+        <p>Nos reservamos el derecho de modificar estos términos ante cambios en las funcionalidades o requisitos de la plataforma Android.</p>
     </div>
 </div>
 
 <script>
     function switchLegalTab(tabId, element) {
-        // Ocultar todos los contenidos
         document.querySelectorAll('.legal-content').forEach(content => {
             content.classList.remove('active');
         });
-        
-        // Quitar clase activa de todas las pestañas
         document.querySelectorAll('.legal-tab').forEach(tab => {
             tab.classList.remove('active');
         });
-        
-        // Mostrar contenido actual y marcar pestaña
         document.getElementById(tabId).classList.add('active');
         element.classList.add('active');
     }

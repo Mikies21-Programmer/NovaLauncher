@@ -37,6 +37,12 @@ import com.daybreak.animelauncher.ui.components.AccessibilityDisclosureDialog
 import com.daybreak.animelauncher.ui.components.DynamicBackground
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
 
+/**
+ * URL pública de la Política de Privacidad para Google Play Console y acceso in-app.
+ * Repositorio público oficial: Mikies21-Programmer/NovaLauncher-Privacy
+ */
+const val PRIVACY_POLICY_URL = "https://mikies21-programmer.github.io/NovaLauncher-Privacy/"
+
 val LocalAdvancedStyleConfig = compositionLocalOf { AdvancedStyleConfig() }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -752,6 +758,100 @@ fun SettingsScreen(
                             )
 
 
+                        }
+                    }
+                }
+
+                // 10. Información y Privacidad (Fase 5B)
+                item {
+                    val packageInfo = remember {
+                        try {
+                            context.packageManager.getPackageInfo(context.packageName, 0)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    val appVersion = packageInfo?.versionName ?: "1.4"
+
+                    GlassCard {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F0FF),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_about_card_title),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color(0xFF00F0FF)
+                                    )
+                                    Text(
+                                        text = "NovaLauncher • " + androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_about_version, appVersion),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.LightGray
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = Color(0xFF00F0FF).copy(alpha = 0.3f))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 12.dp)
+                                ) {
+                                    Text(
+                                        text = androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_privacy_policy_title),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_privacy_policy_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.LightGray
+                                    )
+                                }
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)).apply {
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF00F0FF),
+                                        contentColor = Color.Black
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_privacy_policy_btn),
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
