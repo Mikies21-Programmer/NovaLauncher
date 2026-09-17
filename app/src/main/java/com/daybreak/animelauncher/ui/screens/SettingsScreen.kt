@@ -30,10 +30,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.daybreak.animelauncher.AdvancedStyleConfig
 import com.daybreak.animelauncher.AppShortcut
 import com.daybreak.animelauncher.LauncherViewModel
 import com.daybreak.animelauncher.ui.components.DynamicBackground
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
+
+val LocalAdvancedStyleConfig = compositionLocalOf { AdvancedStyleConfig() }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,47 +115,43 @@ fun SettingsScreen(
     }
 
     var showAdvancedSettings by remember { mutableStateOf(false) }
-    if (showAdvancedSettings) {
-        androidx.activity.compose.BackHandler(enabled = true) {
-            showAdvancedSettings = false
-        }
-        AdvancedSettingsScreen(
-            styleConfig = state.styleConfig,
-            backgroundUri = firstScreenUri,
-            isEs = isEs,
-            onUpdateTransient = { viewModel.updateStyleConfigTransient(it) },
-            onPersist = { viewModel.persistStyleConfig(it) },
-            onReset = { viewModel.resetStyleConfig() },
-            onBack = { showAdvancedSettings = false }
-        )
-        return
-    }
-
-    if (showBackgroundSelection && selectedViewIndexForMedia != null) {
-        androidx.activity.compose.BackHandler(enabled = true) {
-            showBackgroundSelection = false
-        }
-        BackgroundSelectionScreen(
-            isEs = isEs,
-            onThemeSelected = { theme ->
-                viewModel.updateBackgroundUri(selectedViewIndexForMedia!!, theme.backgroundUri)
-                viewModel.updateStyleConfig(theme.styleConfig)
+    CompositionLocalProvider(LocalAdvancedStyleConfig provides state.styleConfig) {
+        if (showAdvancedSettings) {
+            androidx.activity.compose.BackHandler(enabled = true) {
+                showAdvancedSettings = false
+            }
+            AdvancedSettingsScreen(
+                styleConfig = state.styleConfig,
+                backgroundUri = firstScreenUri,
+                isEs = isEs,
+                onUpdateTransient = { viewModel.updateStyleConfigTransient(it) },
+                onPersist = { viewModel.persistStyleConfig(it) },
+                onReset = { viewModel.resetStyleConfig() },
+                onBack = { showAdvancedSettings = false }
+            )
+        } else if (showBackgroundSelection && selectedViewIndexForMedia != null) {
+            androidx.activity.compose.BackHandler(enabled = true) {
                 showBackgroundSelection = false
-            },
-            onImageSelected = { uri ->
-                viewModel.updateBackgroundUri(selectedViewIndexForMedia!!, uri)
-                showBackgroundSelection = false
-            },
-            onCustomImageRequest = {
-                showBackgroundSelection = false
-                pickMediaLauncher.launch(arrayOf("image/*", "video/*"))
-            },
-            onBack = { showBackgroundSelection = false }
-        )
-        return
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
+            }
+            BackgroundSelectionScreen(
+                isEs = isEs,
+                onThemeSelected = { theme ->
+                    viewModel.updateBackgroundUri(selectedViewIndexForMedia!!, theme.backgroundUri)
+                    viewModel.updateStyleConfig(theme.styleConfig)
+                    showBackgroundSelection = false
+                },
+                onImageSelected = { uri ->
+                    viewModel.updateBackgroundUri(selectedViewIndexForMedia!!, uri)
+                    showBackgroundSelection = false
+                },
+                onCustomImageRequest = {
+                    showBackgroundSelection = false
+                    pickMediaLauncher.launch(arrayOf("image/*", "video/*"))
+                },
+                onBack = { showBackgroundSelection = false }
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize()) {
         // 1. Fondo Dinámico de la Vista Principal (Pantalla 1)
         DynamicBackground(
             defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,
@@ -678,15 +677,17 @@ fun SettingsScreen(
                 }
             }
         }
+        }
+        }
     }
 }
 
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(24.dp),
-    backgroundColor: Color = Color(0xFF08080C).copy(alpha = 0.88f),
-    borderColor: Color = Color(0xFF00F0FF).copy(alpha = 0.35f),
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(LocalAdvancedStyleConfig.current.cornerRadius.dp),
+    backgroundColor: Color = Color(0xFF08080C).copy(alpha = LocalAdvancedStyleConfig.current.panelTransparency),
+    borderColor: Color = Color(0xFF00F0FF).copy(alpha = LocalAdvancedStyleConfig.current.glassBorderAlpha),
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(

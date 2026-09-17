@@ -131,7 +131,13 @@ fun AdvancedSettingsScreen(
 ) {
     var currentStyle by androidx.compose.runtime.remember(styleConfig) { androidx.compose.runtime.mutableStateOf(styleConfig) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    val handleReset = {
+        currentStyle = AdvancedStyleConfig()
+        onReset()
+    }
+
+    CompositionLocalProvider(LocalAdvancedStyleConfig provides currentStyle) {
+        Box(modifier = Modifier.fillMaxSize()) {
         DynamicBackground(
             defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,
             backgroundUri = backgroundUri,
@@ -157,7 +163,7 @@ fun AdvancedSettingsScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = onReset) {
+                        IconButton(onClick = handleReset) {
                             Icon(Icons.Outlined.Refresh, contentDescription = "Reset", tint = Color(0xFF00F0FF))
                         }
                     },
@@ -194,7 +200,7 @@ fun AdvancedSettingsScreen(
                                 )
                             }
                             Button(
-                                onClick = onReset,
+                                onClick = handleReset,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF00F0FF).copy(alpha = 0.25f),
                                     contentColor = Color(0xFF00F0FF)
@@ -523,6 +529,7 @@ fun AdvancedSettingsScreen(
                     }
                 }
             }
+        }
         }
     }
 }
