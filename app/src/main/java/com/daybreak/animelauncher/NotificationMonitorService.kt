@@ -51,11 +51,46 @@ class NotificationMonitorService : NotificationListenerService() {
 
         fun isMessagingNotification(sbn: StatusBarNotification): Boolean {
             if (sbn.isOngoing) return false
+            val notif = sbn.notification ?: return false
+            val cat = notif.category
+            // Excluir llamadas activas o llamadas perdidas si vienen categorizadas a nivel de sistema
+            if (cat == android.app.Notification.CATEGORY_CALL || cat == android.app.Notification.CATEGORY_MISSED_CALL) {
+                return false
+            }
             val pkg = sbn.packageName?.lowercase() ?: return false
             if (KNOWN_MESSAGING_PACKAGES.contains(pkg)) return true
-            val cat = sbn.notification?.category
-            if (cat == android.app.Notification.CATEGORY_MESSAGE || cat == android.app.Notification.CATEGORY_EMAIL) return true
+            if (cat == android.app.Notification.CATEGORY_MESSAGE || cat == android.app.Notification.CATEGORY_EMAIL) {
+                return true
+            }
             return false
+        }
+
+        /**
+         * Cuenta el número de aplicaciones de mensajería únicas que tienen al menos una
+         * notificación activa válida.
+         */
+        fun countUniqueMessagingApps(
+            notifications: Array<StatusBarNotification>?,
+            filterPredicate: (StatusBarNotification) -> Boolean = ::isMessagingNotification
+        ): Int {
+            if (notifications == null) return 0
+            return notifications
+                .filter { filterPredicate(it) }
+                .mapNotNull { it.packageName?.lowercase() }
+                .distinct()
+                .size
+        }
+
+        /**
+         * Función pura para cálculo de aplicaciones únicas a partir de una colección de nombres de paquete.
+         * Facilita la verificación matemática y pruebas unitarias aisladas sin dependencias de plataforma.
+         */
+        fun countUniquePackages(packages: Iterable<String?>): Int {
+            return packages
+                .filterNotNull()
+                .map { it.lowercase() }
+                .distinct()
+                .size
         }
 
         fun isPermissionGranted(context: Context): Boolean {
@@ -100,8 +135,8 @@ class NotificationMonitorService : NotificationListenerService() {
         try {
             val active = activeNotifications
             if (active != null) {
-                // Cuenta exclusivamente notificaciones activas de mensajería para no presentar otras alertas como mensajes
-                val count = active.count { isMessagingNotification(it) }
+                // Cuenta exclusivamente aplicaciones únicas de mensajería con notificaciones activas
+                val count = countUniqueMessagingApps(active)
                 _notificationCount.value = count
             } else {
                 _notificationCount.value = 0

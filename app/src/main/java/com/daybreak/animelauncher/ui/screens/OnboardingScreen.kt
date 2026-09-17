@@ -233,28 +233,31 @@ fun ThemeSelectionStep(isEs: Boolean, viewModel: LauncherViewModel, onNext: () -
 @Composable
 fun DefaultLauncherStep(isEs: Boolean, context: Context, onNext: () -> Unit) {
     var isAlreadyDefault by remember { mutableStateOf(false) }
+    var isNotificationAccessGranted by remember { mutableStateOf(false) }
     
-    val checkDefault = {
+    val checkState = {
         val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
         val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
         isAlreadyDefault = (resolveInfo?.activityInfo?.packageName == context.packageName)
+        isNotificationAccessGranted = com.daybreak.animelauncher.NotificationMonitorService.isPermissionGranted(context)
     }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                checkDefault()
+                checkState()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
+        checkState()
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
     
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        checkDefault()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
+        checkState()
     }
 
     Column(
@@ -264,71 +267,138 @@ fun DefaultLauncherStep(isEs: Boolean, context: Context, onNext: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = if (isEs) "Establecer como Principal" else "Set as Default",
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = if (isEs) {
-                "Para que Anime Launcher sea tu pantalla de inicio oficial cada vez que presiones el botón de inicio, debes establecerlo como predeterminado en el sistema."
-            } else {
-                "For Anime Launcher to be your official home screen every time you press the home button, you must set it as default in the system."
-            },
-            color = Color.LightGray,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 24.sp
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        if (isAlreadyDefault) {
-            Button(
-                onClick = onNext,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF39FF14)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(if (isEs) "¡Ya eres el principal! (Continuar)" else "Already Default! (Continue)", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
-        } else {
-            Button(
-                onClick = {
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
-                            if (roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
-                                launcher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))
-                                return@Button
+        when {
+            // Caso 1: Aún no es el launcher predeterminado del sistema
+            !isAlreadyDefault -> {
+                Text(
+                    text = if (isEs) "Establecer como Principal" else "Set as Default",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = if (isEs) {
+                        "Para que Anime Launcher sea tu pantalla de inicio oficial cada vez que presiones el botón de inicio, debes establecerlo como predeterminado en el sistema."
+                    } else {
+                        "For Anime Launcher to be your official home screen every time you press the home button, you must set it as default in the system."
+                    },
+                    color = Color.LightGray,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = {
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
+                                if (roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                                    launcher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                                    return@Button
+                                }
+                            }
+                            // Fallback para versiones anteriores o si RoleManager falla
+                            val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            try {
+                                val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                                context.startActivity(intent)
+                            } catch (e2: Exception) {
+                                Toast.makeText(context, if(isEs) "Busca 'Aplicaciones predeterminadas' en tus ajustes" else "Search for 'Default apps' in settings", Toast.LENGTH_LONG).show()
                             }
                         }
-                        // Fallback para versiones anteriores o si RoleManager falla
-                        val intent = Intent(Settings.ACTION_HOME_SETTINGS)
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        try {
-                            val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-                            context.startActivity(intent)
-                        } catch (e2: Exception) {
-                            Toast.makeText(context, if(isEs) "Busca 'Aplicaciones predeterminadas' en tus ajustes" else "Search for 'Default apps' in settings", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(if (isEs) "Otorgar Permiso" else "Grant Permission", color = Color.Black, fontWeight = FontWeight.Bold)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isEs) "Otorgar Permiso" else "Grant Permission", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(48.dp))
+                Button(
+                    onClick = onNext,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isEs) "Siguiente" else "Next", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
             }
-            
-            Spacer(modifier = Modifier.height(48.dp))
-            Button(
-                onClick = onNext,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(if (isEs) "Siguiente" else "Next", color = Color.Black, fontWeight = FontWeight.Bold)
+
+            // Caso 2: Es launcher predeterminado, pero NO tiene acceso a notificaciones concedido (Fase 4C / T-19)
+            !isNotificationAccessGranted -> {
+                Text(
+                    text = if (isEs) "Acceso a Notificaciones" else "Notification Access",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = if (isEs) {
+                        "Para mostrar el contador de mensajes pendientes, NovaLauncher necesita acceso a tus notificaciones."
+                    } else {
+                        "To show the pending message counter, NovaLauncher needs access to your notifications."
+                    },
+                    color = Color.LightGray,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = {
+                        com.daybreak.animelauncher.NotificationMonitorService.openPermissionSettings(context)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isEs) "Activar acceso" else "Enable Access", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = onNext,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isEs) "Continuar sin acceso" else "Continue without access", color = Color.White, fontWeight = FontWeight.Normal)
+                }
+            }
+
+            // Caso 3: Es launcher predeterminado y el acceso a notificaciones ya está activo
+            else -> {
+                Text(
+                    text = if (isEs) "¡Todo Listo!" else "All Set!",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = if (isEs) {
+                        "NovaLauncher ya es tu launcher predeterminado y el acceso a notificaciones está activo."
+                    } else {
+                        "NovaLauncher is your default launcher and notification access is active."
+                    },
+                    color = Color.LightGray,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = onNext,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF39FF14)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isEs) "¡Todo listo! (Continuar)" else "All Set! (Continue)", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

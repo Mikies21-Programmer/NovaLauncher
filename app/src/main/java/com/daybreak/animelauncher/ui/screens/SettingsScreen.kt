@@ -410,6 +410,85 @@ fun SettingsScreen(
                     }
                 }
 
+                // 5. Acceso a Notificaciones (Fase 4C / T-19)
+                item {
+                    var hasNotifAccess by remember {
+                        mutableStateOf(com.daybreak.animelauncher.NotificationMonitorService.isPermissionGranted(context))
+                    }
+                    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                                hasNotifAccess = com.daybreak.animelauncher.NotificationMonitorService.isPermissionGranted(context)
+                            }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        hasNotifAccess = com.daybreak.animelauncher.NotificationMonitorService.isPermissionGranted(context)
+                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                    }
+
+                    GlassCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Outlined.Notifications,
+                                        contentDescription = null,
+                                        tint = Color(0xFF00F0FF),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = if (isEs) "Acceso a Notificaciones" else "Notification Access",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color(0xFF00F0FF)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (hasNotifAccess) {
+                                        if (isEs) "Acceso activo: el contador de mensajes está funcionando."
+                                        else "Access granted: pending message counter is active."
+                                    } else {
+                                        if (isEs) "Para mostrar el contador de mensajes pendientes, NovaLauncher necesita acceso a tus notificaciones."
+                                        else "To show the pending message counter, NovaLauncher needs access to your notifications."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (hasNotifAccess) Color(0xFF39FF14) else Color.LightGray
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    com.daybreak.animelauncher.NotificationMonitorService.openPermissionSettings(context)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (hasNotifAccess) Color.White.copy(alpha = 0.15f) else Color(0xFF00F0FF),
+                                    contentColor = if (hasNotifAccess) Color.White else Color.Black
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = if (hasNotifAccess) {
+                                        if (isEs) "Ajustes" else "Settings"
+                                    } else {
+                                        if (isEs) "Activar acceso" else "Enable Access"
+                                    },
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Número de Pantallas (Glass Card)
                 item {
                     GlassCard {
