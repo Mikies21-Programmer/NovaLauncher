@@ -94,7 +94,6 @@ data class AdvancedStyleConfig(
     val panelTransparency: Float = 0.88f,
     val glassBorderAlpha: Float = 0.25f,
     val cornerRadius: Float = 16f,
-    val secondaryTextColor: String = "#A0A0A0",
     val widgetOpacity: Float = 0.90f
 )
 
