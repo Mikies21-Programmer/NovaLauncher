@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">NOVALAUNCHER</string>
+    <string name="accessibility_description">Required to lock screen and expand notifications via gestures in NovaLauncher.</string>
+
+    <!-- Prominent Disclosure Strings (EN) -->
+    <string name="accessibility_disclosure_title">Accessibility Service Usage</string>
+    <string name="accessibility_disclosure_message">NovaLauncher uses the Accessibility Service exclusively to perform system global actions via gestures:\n\n• Double tap: lock the screen.\n• Swipe down: open the notification panel.\n\nNovaLauncher does not use the service to read content from other applications, extract screen text, or record or transmit any accessibility event content.\n\nThese features are optional and will not be available if the service remains disabled.</string>
+    <string name="accessibility_disclosure_accept">Accept &amp; Configure</string>
+    <string name="accessibility_disclosure_cancel">Not now</string>
+
+    <!-- Settings Screen Accessibility Card Strings (EN) -->
+    <string name="settings_accessibility_card_title">Accessibility Service</string>
+    <string name="settings_accessibility_card_active">Service active: lock screen and notification gestures enabled.</string>
+    <string name="settings_accessibility_card_inactive">Required to lock screen with double tap and open notifications by swiping.</string>
+    <string name="settings_accessibility_btn_active">Settings</string>
+    <string name="settings_accessibility_btn_inactive">Enable service</string>
+</resources>

@@ -33,6 +33,7 @@ import androidx.compose.ui.window.Dialog
 import com.daybreak.animelauncher.AdvancedStyleConfig
 import com.daybreak.animelauncher.AppShortcut
 import com.daybreak.animelauncher.LauncherViewModel
+import com.daybreak.animelauncher.ui.components.AccessibilityDisclosureDialog
 import com.daybreak.animelauncher.ui.components.DynamicBackground
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
 
@@ -58,6 +59,7 @@ fun SettingsScreen(
     
     var installedApps by remember { mutableStateOf<List<AppShortcut>>(emptyList()) }
     var appSearchQuery by remember { mutableStateOf("") }
+    var showAccessibilityDisclosure by remember { mutableStateOf(false) }
 
     // Load installed apps once
     LaunchedEffect(Unit) {
@@ -489,6 +491,94 @@ fun SettingsScreen(
                     }
                 }
 
+                // 6. Servicio de Accesibilidad (Fase 5A — Prominent Disclosure)
+                item {
+                    var isAccessibilityActive by remember {
+                        mutableStateOf(com.daybreak.animelauncher.LauncherAccessibilityService.instance != null)
+                    }
+                    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                                isAccessibilityActive = com.daybreak.animelauncher.LauncherAccessibilityService.instance != null
+                            }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        isAccessibilityActive = com.daybreak.animelauncher.LauncherAccessibilityService.instance != null
+                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                    }
+
+                    GlassCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Outlined.AccessibilityNew,
+                                        contentDescription = null,
+                                        tint = Color(0xFF00F0FF),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_accessibility_card_title),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color(0xFF00F0FF)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (isAccessibilityActive) {
+                                        androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_accessibility_card_active)
+                                    } else {
+                                        androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_accessibility_card_inactive)
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isAccessibilityActive) Color(0xFF39FF14) else Color.LightGray
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    if (isAccessibilityActive) {
+                                        try {
+                                            val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    } else {
+                                        showAccessibilityDisclosure = true
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isAccessibilityActive) Color.White.copy(alpha = 0.15f) else Color(0xFF00F0FF),
+                                    contentColor = if (isAccessibilityActive) Color.White else Color.Black
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = if (isAccessibilityActive) {
+                                        androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_accessibility_btn_active)
+                                    } else {
+                                        androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_accessibility_btn_inactive)
+                                    },
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Número de Pantallas (Glass Card)
                 item {
                     GlassCard {
@@ -757,6 +847,24 @@ fun SettingsScreen(
             }
         }
         }
+        }
+
+        if (showAccessibilityDisclosure) {
+            AccessibilityDisclosureDialog(
+                isEs = isEs,
+                onDismiss = { showAccessibilityDisclosure = false },
+                onAccept = {
+                    showAccessibilityDisclosure = false
+                    try {
+                        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            )
         }
     }
 }

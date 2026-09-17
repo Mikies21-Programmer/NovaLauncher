@@ -1,4 +1,17 @@
 <resources>
     <string name="app_name">NOVALAUNCHER</string>
-    <string name="accessibility_description">Necesario para apagar la pantalla con doble toque en Anime Launcher.</string>
+    <string name="accessibility_description">Necesario para apagar la pantalla y desplegar notificaciones mediante gestos en NovaLauncher.</string>
+
+    <!-- Prominent Disclosure Strings (ES) -->
+    <string name="accessibility_disclosure_title">Uso del Servicio de Accesibilidad</string>
+    <string name="accessibility_disclosure_message">NovaLauncher utiliza el Servicio de Accesibilidad exclusivamente para ejecutar acciones globales del sistema mediante gestos:\n\n• Doble toque: bloquear la pantalla.\n• Deslizar hacia abajo: abrir el panel de notificaciones.\n\nNovaLauncher no utiliza el servicio para leer el contenido de otras aplicaciones, extraer texto de la pantalla ni registrar o transmitir el contenido de eventos de accesibilidad.\n\nEstas funciones son opcionales y no estarán disponibles si el servicio permanece desactivado.</string>
+    <string name="accessibility_disclosure_accept">Aceptar y configurar</string>
+    <string name="accessibility_disclosure_cancel">Ahora no</string>
+
+    <!-- Settings Screen Accessibility Card Strings (ES) -->
+    <string name="settings_accessibility_card_title">Servicio de Accesibilidad</string>
+    <string name="settings_accessibility_card_active">Servicio activo: gestos de bloqueo y notificaciones habilitados.</string>
+    <string name="settings_accessibility_card_inactive">Requerido para bloquear la pantalla con doble toque y abrir notificaciones deslizando.</string>
+    <string name="settings_accessibility_btn_active">Ajustes</string>
+    <string name="settings_accessibility_btn_inactive">Activar servicio</string>
 </resources>

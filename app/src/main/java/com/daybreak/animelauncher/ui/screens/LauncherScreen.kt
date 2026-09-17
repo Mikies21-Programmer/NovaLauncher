@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.daybreak.animelauncher.LauncherViewModel
+import com.daybreak.animelauncher.ui.components.AccessibilityDisclosureDialog
 import com.daybreak.animelauncher.ui.components.VideoWallpaperManager
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -73,6 +74,16 @@ fun LauncherScreen(
     var isWidgetEditMode by remember { mutableStateOf(false) }
     var longPressedPageIndex by remember { mutableStateOf(0) }
     var allocatedWidgetId by remember { mutableStateOf<Int?>(null) }
+    var showAccessibilityDisclosure by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onAccessibilityDisclosureRequested = {
+            showAccessibilityDisclosure = true
+        }
+        onDispose {
+            onAccessibilityDisclosureRequested = null
+        }
+    }
     val pageWidgetBoundsMap = remember { mutableStateMapOf<Int, List<Rect>>() }
     val installedApps by viewModel.installedApps.collectAsState()
 
@@ -353,7 +364,9 @@ fun LauncherScreen(
                                             isTracking = false
                                         } else if (totalY > 80f && currentSwipeDownEnabled) {
                                             change.consume()
-                                            openNotificationsWithFallback(context, currentLanguage)
+                                            openNotificationsWithFallback(context, currentLanguage) {
+                                                showAccessibilityDisclosure = true
+                                            }
                                             isTracking = false
                                         }
                                     }
@@ -451,19 +464,7 @@ fun LauncherScreen(
             if (state.gesturesConfig.doubleTapToSleep) {
                 val locked = com.daybreak.animelauncher.LauncherAccessibilityService.lockScreen()
                 if (!locked) {
-                    Toast.makeText(
-                        context,
-                        if (state.language == "es") "Activa el Servicio de Accesibilidad para apagar pantalla" else "Enable Accessibility Service to turn off screen",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    try {
-                        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+                    showAccessibilityDisclosure = true
                 }
             }
         }
@@ -918,27 +919,56 @@ fun LauncherScreen(
             onClose = { navState = LauncherNavState.Home }
         )
     }
+
+    if (showAccessibilityDisclosure) {
+        AccessibilityDisclosureDialog(
+            isEs = state.language == "es",
+            onDismiss = { showAccessibilityDisclosure = false },
+            onAccept = {
+                showAccessibilityDisclosure = false
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        )
+    }
 }
 
-fun openNotificationsWithFallback(context: Context, language: String = "es") {
+private var onAccessibilityDisclosureRequested: (() -> Unit)? = null
+
+fun openNotificationsWithFallback(
+    context: Context,
+    language: String = "es",
+    onRequestDisclosure: (() -> Unit)? = null
+) {
     val opened = com.daybreak.animelauncher.LauncherAccessibilityService.openNotifications()
     if (!opened) {
-        Toast.makeText(
-            context,
-            if (language == "es") "Activa el Servicio de Accesibilidad para abrir notificaciones" else "Enable Accessibility Service to open notifications",
-            Toast.LENGTH_LONG
-        ).show()
-        try {
-            val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val disclosureAction = onRequestDisclosure ?: onAccessibilityDisclosureRequested
+        if (disclosureAction != null) {
+            disclosureAction()
+        } else {
+            Toast.makeText(
+                context,
+                if (language == "es") "Activa el Servicio de Accesibilidad para abrir notificaciones" else "Enable Accessibility Service to open notifications",
+                Toast.LENGTH_LONG
+            ).show()
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 }
 
-fun expandStatusBar(context: Context) {
-    openNotificationsWithFallback(context)
+fun expandStatusBar(context: Context, onRequestDisclosure: (() -> Unit)? = null) {
+    openNotificationsWithFallback(context, onRequestDisclosure = onRequestDisclosure)
 }
