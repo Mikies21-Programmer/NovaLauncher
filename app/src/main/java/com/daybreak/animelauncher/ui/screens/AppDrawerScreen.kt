@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daybreak.animelauncher.AppShortcut
@@ -84,18 +87,20 @@ fun AppDrawerScreen(
     val state by viewModel.state.collectAsState()
     val style = state.styleConfig
 
-    val filteredApps = remember(searchQuery, selectedCategoryIndex, installedApps, categories) {
+    val drawerItems = remember(searchQuery, selectedCategoryIndex, installedApps, categories) {
         val appsInCat = if (currentCategory.id == "all") {
             installedApps
         } else {
             installedApps.filter { it.packageName != null && currentCategory.packageNames.contains(it.packageName) }
         }
         
-        if (searchQuery.isBlank()) {
+        val searchFiltered = if (searchQuery.isBlank()) {
             appsInCat
         } else {
             appsInCat.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
+
+        buildDrawerListItems(searchFiltered)
     }
 
     Box(
@@ -154,57 +159,99 @@ fun AppDrawerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Apps Grid
+            // Apps List (Nova Drawer — Hybrid Stream)
             val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+            LazyColumn(
                 contentPadding = PaddingValues(
-                    start = 16.dp,
-                    top = 16.dp,
-                    end = 16.dp,
+                    start = 20.dp,
+                    top = 8.dp,
+                    end = 20.dp,
                     bottom = 16.dp + navBarBottom
                 ),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(items = filteredApps, key = { it.id }) { app ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onTap = {
-                                        if (app.packageName != null) {
-                                            val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
-                                            if (launchIntent != null) {
-                                                if (app.id.contains("/")) {
-                                                    launchIntent.setClassName(app.packageName, app.id.substringAfter("/"))
-                                                }
-                                                onClose()
-                                                context.startActivity(launchIntent)
-                                            }
-                                        }
-                                    },
-                                    onLongPress = {
-                                        showAppMenu = app
-                                    }
+                items(
+                    items = drawerItems,
+                    key = { item ->
+                        when (item) {
+                            is DrawerListItem.Header -> "header_${item.title}"
+                            is DrawerListItem.AppRow -> "app_${item.app.id}"
+                        }
+                    },
+                    contentType = { item ->
+                        when (item) {
+                            is DrawerListItem.Header -> "header"
+                            is DrawerListItem.AppRow -> "app_row"
+                        }
+                    }
+                ) { item ->
+                    when (item) {
+                        is DrawerListItem.Header -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp, bottom = 6.dp)
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    color = Color(0xFF00F0FF),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(0.5.dp)
+                                        .background(Color(0xFF00F0FF).copy(alpha = 0.25f))
                                 )
                             }
-                    ) {
-                        ShortcutIcon(
-                            shortcut = app, 
-                            modifier = Modifier.size(56.dp),
-                            customIconTint = state.styleConfig?.customIconColor?.parseColorSafe()
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = app.name,
-                            color = if (style.appDrawerTextColor.equals("#000000", ignoreCase = true)) Color.White else style.appDrawerTextColor.parseColorSafe(),
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            fontWeight = FontWeight.Light
-                        )
+                        }
+                        is DrawerListItem.AppRow -> {
+                            val app = item.app
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 58.dp)
+                                    .padding(vertical = 4.dp)
+                                    .pointerInput(app.id) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                if (app.packageName != null) {
+                                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
+                                                    if (launchIntent != null) {
+                                                        if (app.id.contains("/")) {
+                                                            launchIntent.setClassName(app.packageName, app.id.substringAfter("/"))
+                                                        }
+                                                        onClose()
+                                                        context.startActivity(launchIntent)
+                                                    }
+                                                }
+                                            },
+                                            onLongPress = {
+                                                showAppMenu = app
+                                            }
+                                        )
+                                    }
+                            ) {
+                                ShortcutIcon(
+                                    shortcut = app,
+                                    modifier = Modifier.size(48.dp),
+                                    customIconTint = state.styleConfig?.customIconColor?.parseColorSafe()
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = app.name,
+                                    color = if (style.appDrawerTextColor.equals("#000000", ignoreCase = true)) Color.White else style.appDrawerTextColor.parseColorSafe(),
+                                    fontSize = 15.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        }
                     }
                 }
             }
