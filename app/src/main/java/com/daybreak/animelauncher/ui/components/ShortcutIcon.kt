@@ -46,7 +46,7 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import com.daybreak.animelauncher.AppShortcut
 
 object IconCache {
-    private const val MAX_ENTRIES = 80
+    private const val MAX_ENTRIES = 128
     private val lruCache = object : android.util.LruCache<String, ImageBitmap>(MAX_ENTRIES) {}
 
     fun getIcon(context: android.content.Context, packageName: String): ImageBitmap? {

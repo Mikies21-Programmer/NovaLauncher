@@ -15,3 +15,9 @@
 local.properties
 view.xml
 app/release/
+
+# Signing & Keystores (Fase 5E)
+*.jks
+*.keystore
+keystore.properties
+*.pem
