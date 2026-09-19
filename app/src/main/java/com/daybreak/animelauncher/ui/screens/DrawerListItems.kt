@@ -7,9 +7,22 @@ import java.text.Normalizer
  * Elementos de la lista plana para LazyColumn en Nova Drawer — Hybrid Stream.
  */
 sealed interface DrawerListItem {
-    data class Header(val title: String) : DrawerListItem
-    data class AppRow(val app: AppShortcut) : DrawerListItem
+    val sectionChar: Char
+    data class Header(val title: String, override val sectionChar: Char = title.firstOrNull() ?: '#') : DrawerListItem
+    data class AppRow(val app: AppShortcut, override val sectionChar: Char) : DrawerListItem
 }
+
+/**
+ * Contenedor de datos precalculados para el Drawer:
+ * - [items]: lista plana para el LazyColumn (headers y app rows).
+ * - [sectionIndexMap]: mapa de sección (Char) a índice real en [items].
+ * - [availableSections]: lista ordenada de caracteres de sección disponibles en la vista actual.
+ */
+data class DrawerData(
+    val items: List<DrawerListItem> = emptyList(),
+    val sectionIndexMap: Map<Char, Int> = emptyMap(),
+    val availableSections: List<Char> = emptyList()
+)
 
 /**
  * Normaliza la primera letra del nombre de una aplicación para agruparla en secciones alfabéticas.
@@ -35,12 +48,13 @@ fun normalizeSectionChar(name: String): String {
 }
 
 /**
- * Transforma y agrupa la lista de aplicaciones en una lista plana de [DrawerListItem]
- * (Header y AppRow) ordenadas alfabéticamente de forma case-insensitive.
- * Secciones alfabéticas A-Z primero, seguidas de '#' si existen aplicaciones con caracteres especiales/números.
+ * Transforma y agrupa la lista de aplicaciones precalculando:
+ * - Lista plana ordenada alfabéticamente (case-insensitive) con secciones A-Z y '#' al final si existe.
+ * - Mapa exacto de Char -> índice real en la lista.
+ * - Lista de secciones presentes en la categoría.
  */
-fun buildDrawerListItems(apps: List<AppShortcut>): List<DrawerListItem> {
-    if (apps.isEmpty()) return emptyList()
+fun buildDrawerData(apps: List<AppShortcut>): DrawerData {
+    if (apps.isEmpty()) return DrawerData()
 
     val grouped = apps.groupBy { normalizeSectionChar(it.name) }
     val sortedSections = grouped.keys.sortedWith { s1, s2 ->
@@ -52,13 +66,24 @@ fun buildDrawerListItems(apps: List<AppShortcut>): List<DrawerListItem> {
         }
     }
 
-    val result = ArrayList<DrawerListItem>(apps.size + sortedSections.size)
+    val items = ArrayList<DrawerListItem>(apps.size + sortedSections.size)
+    val indexMap = LinkedHashMap<Char, Int>(sortedSections.size)
+    val sections = ArrayList<Char>(sortedSections.size)
+
     for (section in sortedSections) {
-        result.add(DrawerListItem.Header(section))
+        val char = section[0]
+        sections.add(char)
+        indexMap[char] = items.size
+        items.add(DrawerListItem.Header(section, char))
         val sectionApps = grouped[section]!!.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
         for (app in sectionApps) {
-            result.add(DrawerListItem.AppRow(app))
+            items.add(DrawerListItem.AppRow(app, char))
         }
     }
-    return result
+    return DrawerData(items = items, sectionIndexMap = indexMap, availableSections = sections)
 }
+
+/**
+ * Función de compatibilidad para obtener únicamente la lista plana de DrawerListItem.
+ */
+fun buildDrawerListItems(apps: List<AppShortcut>): List<DrawerListItem> = buildDrawerData(apps).items

@@ -5,8 +5,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -21,11 +28,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import com.daybreak.animelauncher.AppShortcut
 import com.daybreak.animelauncher.DrawerCategory
 import com.daybreak.animelauncher.LauncherViewModel
@@ -87,7 +99,10 @@ fun AppDrawerScreen(
     val state by viewModel.state.collectAsState()
     val style = state.styleConfig
 
-    val drawerItems = remember(searchQuery, selectedCategoryIndex, installedApps, categories) {
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
+    val drawerData = remember(searchQuery, selectedCategoryIndex, installedApps, categories) {
         val appsInCat = if (currentCategory.id == "all") {
             installedApps
         } else {
@@ -100,7 +115,51 @@ fun AppDrawerScreen(
             appsInCat.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
 
-        buildDrawerListItems(searchFiltered)
+        buildDrawerData(searchFiltered)
+    }
+
+    // Letra activa derivada eficientemente de listState.firstVisibleItemIndex
+    val activeLetter by remember(drawerData.items) {
+        derivedStateOf {
+            drawerData.items.getOrNull(listState.firstVisibleItemIndex)?.sectionChar
+        }
+    }
+
+    var isIndexVisible by remember { mutableStateOf(false) }
+    var isTouchingIndex by remember { mutableStateOf(false) }
+    var selectedLetter by remember { mutableStateOf<Char?>(null) }
+    var scrollJob by remember { mutableStateOf<Job?>(null) }
+    var hideJob by remember { mutableStateOf<Job?>(null) }
+
+    // Visibilidad del índice alfabético según scrollInProgress y searchQuery
+    LaunchedEffect(listState, searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            isIndexVisible = false
+            selectedLetter = null
+            return@LaunchedEffect
+        }
+        snapshotFlow { listState.isScrollInProgress }
+            .collectLatest { isScrolling ->
+                if (isScrolling) {
+                    isIndexVisible = true
+                } else {
+                    delay(700)
+                    if (!isTouchingIndex) {
+                        isIndexVisible = false
+                        selectedLetter = null
+                    }
+                }
+            }
+    }
+
+    // Reseteo de scroll y cancelación de saltos al cambiar categoría o búsqueda
+    LaunchedEffect(selectedCategoryIndex, searchQuery) {
+        scrollJob?.cancel()
+        hideJob?.cancel()
+        selectedLetter = null
+        if (drawerData.items.isNotEmpty()) {
+            listState.scrollToItem(0)
+        }
     }
 
     Box(
@@ -162,6 +221,7 @@ fun AppDrawerScreen(
             // Apps List (Nova Drawer — Hybrid Stream)
             val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(
                     start = 20.dp,
                     top = 8.dp,
@@ -171,7 +231,7 @@ fun AppDrawerScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(
-                    items = drawerItems,
+                    items = drawerData.items,
                     key = { item ->
                         when (item) {
                             is DrawerListItem.Header -> "header_${item.title}"
@@ -255,6 +315,52 @@ fun AppDrawerScreen(
                     }
                 }
             }
+        }
+
+        // Alphabet Index Rail (Bloque 2)
+        val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        AnimatedVisibility(
+            visible = isIndexVisible && searchQuery.isBlank() && drawerData.availableSections.isNotEmpty(),
+            enter = fadeIn(animationSpec = tween(150)),
+            exit = fadeOut(animationSpec = tween(300)),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(
+                    top = 100.dp,
+                    bottom = 16.dp + navBarBottom,
+                    end = 4.dp
+                )
+        ) {
+            AlphabetIndexRail(
+                sections = drawerData.availableSections,
+                activeLetter = activeLetter,
+                selectedLetter = selectedLetter,
+                onLetterSelected = { char ->
+                    selectedLetter = char
+                    val targetIndex = drawerData.sectionIndexMap[char]
+                    if (targetIndex != null && targetIndex in 0 until drawerData.items.size) {
+                        scrollJob?.cancel()
+                        scrollJob = coroutineScope.launch {
+                            listState.scrollToItem(targetIndex)
+                        }
+                    }
+                },
+                onInteractionStateChange = { interacting ->
+                    isTouchingIndex = interacting
+                    if (interacting) {
+                        isIndexVisible = true
+                    } else {
+                        hideJob?.cancel()
+                        hideJob = coroutineScope.launch {
+                            delay(700)
+                            if (!listState.isScrollInProgress && !isTouchingIndex) {
+                                isIndexVisible = false
+                                selectedLetter = null
+                            }
+                        }
+                    }
+                }
+            )
         }
     }
 
@@ -442,5 +548,95 @@ fun AppDrawerScreen(
                 }
             }
         )
+    }
+}
+
+/**
+ * Rail vertical de índice alfabético A-Z (Bloque 2).
+ * - Estética minimalista/glass acorde a NovaLauncher.
+ * - Soporta tanto tap directo sobre una letra como desplazamiento continuo (drag) táctil.
+ * - Precalcula la altura por elemento para mantener un tamaño proporcional y óptimo de área de contacto.
+ */
+@Composable
+private fun AlphabetIndexRail(
+    sections: List<Char>,
+    activeLetter: Char?,
+    selectedLetter: Char?,
+    onLetterSelected: (Char) -> Unit,
+    onInteractionStateChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (sections.isEmpty()) return
+
+    var railHeightPx by remember { mutableFloatStateOf(0f) }
+    val itemHeightDp = (480.dp / sections.size.coerceAtLeast(1)).coerceIn(14.dp, 26.dp)
+
+    Box(
+        modifier = modifier
+            .width(38.dp)
+            .background(
+                color = Color(0xCC08080C),
+                shape = RoundedCornerShape(19.dp)
+            )
+            .onGloballyPositioned { coordinates ->
+                railHeightPx = coordinates.size.height.toFloat()
+            }
+            .pointerInput(sections) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    onInteractionStateChange(true)
+                    val railHeight = if (this.size.height > 0) this.size.height.toFloat() else railHeightPx
+                    var lastIndex = -1
+                    if (railHeight > 0 && sections.isNotEmpty()) {
+                        val itemHeight = railHeight / sections.size
+                        val index = (down.position.y / itemHeight).toInt().coerceIn(0, sections.size - 1)
+                        lastIndex = index
+                        onLetterSelected(sections[index])
+                    }
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        change.consume()
+                        if (!change.pressed) {
+                            break
+                        }
+                        if (railHeight > 0 && sections.isNotEmpty()) {
+                            val itemHeight = railHeight / sections.size
+                            val index = (change.position.y / itemHeight).toInt().coerceIn(0, sections.size - 1)
+                            if (index != lastIndex) {
+                                lastIndex = index
+                                onLetterSelected(sections[index])
+                            }
+                        }
+                    }
+                    onInteractionStateChange(false)
+                }
+            }
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.wrapContentHeight()
+        ) {
+            sections.forEach { char ->
+                val isActive = char == (selectedLetter ?: activeLetter)
+                Box(
+                    modifier = Modifier
+                        .width(38.dp)
+                        .height(itemHeightDp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = char.toString(),
+                        color = if (isActive) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.55f),
+                        fontSize = if (isActive) 12.sp else 10.sp,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
     }
 }
