@@ -16,6 +16,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -55,6 +57,10 @@ import androidx.compose.ui.window.Dialog
 import com.daybreak.animelauncher.LauncherViewModel
 import com.daybreak.animelauncher.ui.components.AccessibilityDisclosureDialog
 import com.daybreak.animelauncher.ui.components.VideoWallpaperManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
@@ -213,6 +219,49 @@ fun LauncherScreen(
         }
     }
 
+    // Resume Fade: Transición visual extremadamente breve y limpia al volver a foreground desde otra app (~100ms)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val resumeAlpha = remember { Animatable(1f) }
+    val hasBeenStopped = remember { booleanArrayOf(false) }
+    val resumeAnimJobHolder = remember { object { var job: Job? = null } }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    // Solo se marca true si la Activity se detiene efectivamente al pasar a segundo plano
+                    hasBeenStopped[0] = true
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    // Si el usuario desbloqueó el dispositivo, la animación de desbloqueo (unlockAlpha) toma precedencia
+                    if (isUnlockPending) {
+                        hasBeenStopped[0] = false
+                    } else if (hasBeenStopped[0]) {
+                        hasBeenStopped[0] = false
+                        resumeAnimJobHolder.job?.cancel()
+                        resumeAnimJobHolder.job = coroutineScope.launch {
+                            try {
+                                resumeAlpha.snapTo(0f)
+                                resumeAlpha.animateTo(
+                                    targetValue = 1f,
+                                    animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing)
+                                )
+                            } finally {
+                                resumeAlpha.snapTo(1f)
+                            }
+                        }
+                    }
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            resumeAnimJobHolder.job?.cancel()
+        }
+    }
+
     // Launcher for Widget Configuration screen (e.g. city picker for weather widget)
     val configureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -290,7 +339,14 @@ fun LauncherScreen(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
-                alpha = unlockAlpha.value
+                alpha = resumeAlpha.value
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = unlockAlpha.value
                 scaleX = unlockScale.value
                 scaleY = unlockScale.value
                 translationY = unlockOffsetY.value * density
@@ -902,14 +958,18 @@ fun LauncherScreen(
 
     AnimatedVisibility(
         visible = navState is LauncherNavState.InDrawer,
-        enter = slideInVertically(
-            initialOffsetY = { it / 3 },
-            animationSpec = tween(220, easing = FastOutSlowInEasing)
-        ) + fadeIn(animationSpec = tween(220)),
-        exit = slideOutVertically(
-            targetOffsetY = { it / 3 },
-            animationSpec = tween(180, easing = FastOutLinearInEasing)
-        ) + fadeOut(animationSpec = tween(180))
+        enter = fadeIn(
+            animationSpec = tween(160, easing = FastOutSlowInEasing)
+        ) + scaleIn(
+            initialScale = 0.96f,
+            animationSpec = tween(160, easing = FastOutSlowInEasing)
+        ),
+        exit = fadeOut(
+            animationSpec = tween(120, easing = FastOutLinearInEasing)
+        ) + scaleOut(
+            targetScale = 0.97f,
+            animationSpec = tween(120, easing = FastOutLinearInEasing)
+        )
     ) {
         AppDrawerScreen(
             viewModel = viewModel,
@@ -920,22 +980,23 @@ fun LauncherScreen(
         )
     }
 
-    if (showAccessibilityDisclosure) {
-        AccessibilityDisclosureDialog(
-            isEs = state.language == "es",
-            onDismiss = { showAccessibilityDisclosure = false },
-            onAccept = {
-                showAccessibilityDisclosure = false
-                try {
-                    val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (showAccessibilityDisclosure) {
+            AccessibilityDisclosureDialog(
+                isEs = state.language == "es",
+                onDismiss = { showAccessibilityDisclosure = false },
+                onAccept = {
+                    showAccessibilityDisclosure = false
+                    try {
+                        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
-            }
-        )
+            )
+        }
     }
 }
 

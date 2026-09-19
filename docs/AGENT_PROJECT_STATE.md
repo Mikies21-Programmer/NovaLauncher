@@ -32,6 +32,19 @@
     * Validación física en POCO X6 5G (124 aplicaciones instaladas): scroll rápido completamente fluido, sin tirones/trabones visibles, iconos aparecen de inmediato y sin parpadeo de placeholders.
     * Evidencia empírica en sesión física instrumentada: 412 requests / 412 hits / 0 misses (100% hit rate).
     * Retiro total de instrumentación temporal de profiling (`AppDrawerPerfProfiler`, tag `NOVALAUNCHER_PERF`, contadores y trazas) tras el cierre de la fase.
+  * **DRAWER & MOTION SYSTEM CHECKPOINT (PASS / VALIDATED):**
+    * **App Drawer Rediseñado:** Stream híbrido en `LazyColumn` plana con `DrawerListItem.Header` y `DrawerListItem.AppRow`, eliminando anidamientos y garantizando 120 FPS sin jank.
+    * **AlphabetIndexRail Optimizado:** Scrubbing instantáneo con canal conflated ("latest event wins"), pulso visual y tarjeta activa dinámica (`derivedStateOf`) sincronizada de A a Z.
+    * **Swipe Horizontal entre Categorías:** Navegación por swipe no circular (Swipe izquierda: `actualIndex + 1`, Swipe derecha: `actualIndex - 1`), desambiguación con touch slop en `PointerEventPass.Initial` que respeta scroll vertical, tap, long press, rail y buscador. Ruta conceptual unificada `selectCategory(index)` compartida con las category pills.
+    * **Nova Motion System (6/6 Completo):**
+      1. *Drawer Open:* Fade + Scale In (160 ms, `FastOutSlowInEasing`).
+      2. *Drawer Close:* Fade + Scale Out (120 ms, `FastOutLinearInEasing`).
+      3. *Category Pill Motion:* Sliding glass pill en `PrimaryScrollableTabRow`.
+      4. *Alphabet Rail Feedback:* Tarjeta flotante con pulso dinámico.
+      5. *App Row Tap Feedback:* Micro-atenuación alpha inmediata (0.75f, 70 ms) en pulsación.
+      6. *Resume Fade:* Fade sutil (~100 ms) al regresar de apps externas.
+    * **Corrección False Trigger Resume Fade:** Sustitución de `ON_PAUSE` por `ON_STOP` en el observador de ciclo de vida, erradicando el micro-parpadeo al presionar botón Home en pantalla principal.
+    * **Componentes Protegidos:** Intactos al 100% (`ShortcutIcon`, `IconCache`, `LauncherViewModel`, `VideoWallpaperManager`, `VideoBackground`, `WidgetHostManager`, `NativeWidgetView`, `ViewOne`, `ViewTwo`, `LauncherAccessibilityService`, `NotificationMonitorService`, `LauncherNavState`).
 
 ---
 
@@ -49,21 +62,22 @@
 
 ## 4. Validaciones Automatizadas
 * `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL**
-* `.\gradlew.bat test`: **BUILD SUCCESSFUL** (0 fallos)
+* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (0 fallos)
 * `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores)
-* `.\gradlew.bat assembleRelease`: **BUILD SUCCESSFUL** (R8 + `lintVitalRelease` PASS)
-* `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Genera `app-release.aab` en `app/build/outputs/bundle/release/`)
+* `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (R8 + `lintVitalRelease` PASS, AAB generado)
 
 ---
 
 ## 5. Tareas Pendientes
-1. **Google Play Console — Restablecimiento de Upload Key:**  
+1. **Validación Física Final por el Desarrollador (POCO X6 5G):**
+   Confirmación del checklist de 21 puntos (Resume Fade sin flash al pulsar Home + Swipe horizontal entre categorías).
+2. **Google Play Console — Restablecimiento de Upload Key:**
    Subir `upload_certificate-v2.pem` en la sección *"Solicitar cambio de la clave de subida"* de Play Console y aguardar la aprobación/activación de Google (suele tomar de 24 a 48 horas).
-2. **Configuración Segura de Firma en Gradle (Fase 5E-3):**  
+3. **Configuración Segura de Firma en Gradle (Fase 5E-3):**
    Configurar `signingConfigs.release` mediante un archivo de propiedades desacoplado e ignorado por Git (ej. `keystore.properties`) para que `bundleRelease` firme automáticamente el AAB sin exponer contraseñas.
-3. **Declaración y Video de Accesibilidad:**  
+4. **Declaración y Video de Accesibilidad:**
    Preparar y adjuntar el video explicativo de YouTube (no listado) demostrando el diálogo de divulgación destacada y los gestos globales.
-4. **Ficha de Play Store:**  
+5. **Ficha de Play Store:**
    Subir iconos (512x512), gráfico de funciones (1024x500) y capturas de pantalla de la app.
 
 ---

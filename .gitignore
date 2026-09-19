@@ -21,3 +21,6 @@ app/release/
 *.keystore
 keystore.properties
 *.pem
+
+# Kotlin daemon / build sessions
+.kotlin/
