@@ -1,0 +1,8 @@
+com.daybreak.animelauncher.benchmark-pngs-0 C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\generated\res\pngs\benchmark
+com.daybreak.animelauncher.benchmark-updated_navigation_xml-1 C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\generated\updated_navigation_xml\benchmark
+com.daybreak.animelauncher.benchmark-packageBenchmarkResources-2 C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\intermediates\incremental\benchmark\packageBenchmarkResources\merged.dir
+com.daybreak.animelauncher.benchmark-packageBenchmarkResources-3 C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\intermediates\incremental\benchmark\packageBenchmarkResources\stripped.dir
+com.daybreak.animelauncher.benchmark-benchmark-4 C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\intermediates\merged_res\benchmark\mergeBenchmarkResources
+com.daybreak.animelauncher.benchmark-benchmark-5 C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\src\benchmark\res
+com.daybreak.animelauncher.benchmark-main-6 C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\src\main\res
+gradleHome-0 C:\Users\migue\.gradle

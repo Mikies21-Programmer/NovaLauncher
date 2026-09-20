@@ -1,0 +1,13 @@
+#Sat Sep 19 22:55:04 CST 2026
+base.0=C\:\\Users\\migue\\AndroidStudioProjects\\AnimeLauncher\\benchmark\\build\\intermediates\\dex\\benchmark\\mergeExtDexBenchmark\\classes.dex
+base.1=C\:\\Users\\migue\\AndroidStudioProjects\\AnimeLauncher\\benchmark\\build\\intermediates\\dex\\benchmark\\mergeProjectDexBenchmark\\0\\classes.dex
+base.2=C\:\\Users\\migue\\AndroidStudioProjects\\AnimeLauncher\\benchmark\\build\\intermediates\\dex\\benchmark\\mergeProjectDexBenchmark\\15\\classes.dex
+base.3=C\:\\Users\\migue\\AndroidStudioProjects\\AnimeLauncher\\benchmark\\build\\intermediates\\global_synthetics_dex\\benchmark\\generateBenchmarkGlobalSynthetics\\classes.dex
+path.0=classes.dex
+path.1=0/classes.dex
+path.2=15/classes.dex
+path.3=classes.dex
+renamed.0=classes.dex
+renamed.1=classes2.dex
+renamed.2=classes3.dex
+renamed.3=classes4.dex

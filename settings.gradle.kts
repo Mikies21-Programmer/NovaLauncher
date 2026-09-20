@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AnimeLauncher"
 include(":app")
+include(":benchmark")

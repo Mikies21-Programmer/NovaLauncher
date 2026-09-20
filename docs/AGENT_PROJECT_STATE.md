@@ -1,7 +1,7 @@
 # Estado Persistente del Proyecto — NovaLauncher (Agent State)
 
 > **Documento maestro de sincronización, continuidad operativa y auditoría entre sesiones, Antigravity y Claude.**<br>
-> *Última actualización: 19 de septiembre de 2026 (Post Checkpoint Fase 2E — Adaptive Wallpaper Theming).*<br>
+> *Última actualización: 19 de septiembre de 2026 (Cierre P1 + P2-01 — Performance Engineering).*<br>
 > *Regla de seguridad estricta: CERO secretos, contraseñas, keystores ni claves privadas en este repositorio.*
 
 ---
@@ -19,6 +19,19 @@
 ---
 
 ## 2. Estado Oficial de Módulos y Fases
+
+### Tabla de Estado Oficial de Performance Engineering
+
+| Fase | Alcance Técnico | Estado Oficial |
+| :--- | :--- | :---: |
+| **P0** | Auditoría estática y localización de hotspots | ✅ **COMPLETADA** |
+| **P1** | Instrumentación (`:benchmark`) y Baseline Cuantitativa empírica | ✅ **COMPLETADA / VALIDADA** |
+| **P2-01** | Optimización Quirúrgica del Search del App Drawer | ✅ **COMPLETADA / VALIDADA FÍSICAMENTE** |
+| **P2-02** | Cold Start / `LauncherViewModel.loadState()` (Async / Deferred) | ⏳ **PRÓXIMA FASE / AUDITORÍA PENDIENTE** |
+| **P2-03** | Mutaciones / `LauncherViewModel.saveState()` (Debounced I/O) | ⏳ **PENDIENTE** |
+| **P2-04** | Estabilidad de Compose / Recomposiciones (`LauncherState`) | ⏳ **PENDIENTE** |
+
+---
 
 ### Tabla de Estado Oficial de Adaptive Wallpaper Theming
 
@@ -152,7 +165,7 @@ Queda terminantemente prohibido modificar o refactorizar sin evidencia y aprobac
 
 * `VideoWallpaperManager.kt`
 * `VideoBackground.kt`
-* `WidgetHostManager.kt`
+* `WidgetHostManager.kt` *(Nota: Puede ser inspeccionado para la auditoría de Cold Start al formar parte del coste detectado en loadState, pero no debe modificarse durante la auditoría).*
 * `NativeWidgetView.kt`
 * `ViewOne.kt`
 * `ViewTwo.kt`
@@ -166,127 +179,159 @@ Queda terminantemente prohibido modificar o refactorizar sin evidencia y aprobac
 * Motion System del Drawer
 * Lógica de scroll y selección/cambio de categorías del Drawer
 * Ciclo de vida y binding de AppWidgets
+* Adaptive Wallpaper Theming (Tokens, Palette, Analyzer, Generador y Flow)
 
 ---
 
-## 6. Nuevo Bloque Prioritario: Performance Engineering / App Performance
+## 6. Performance Engineering / App Performance
 
-* **ESTADO INICIAL:** ⏳ **AUDITORÍA PENDIENTE (CERO CÓDIGO / CERO OPTIMIZACIONES PREMATURAS)**
-* **Objetivo:** Conseguir que NovaLauncher sea extraordinariamente fluido y estable en una gama amplia de dispositivos Android (desde hardware modesto hasta gama alta), evitando optimizaciones a ciegas y manteniendo intactas las funcionalidades validadas.
+### Estado Oficial de Fases
+* **P0 — Auditoría Estática de Hotspots:** ✅ **COMPLETADA**
+* **P1 — Instrumentación y Baseline Cuantitativa:** ✅ **COMPLETADA / VALIDADA**
+* **P2-01 — Optimización Quirúrgica del Search del App Drawer:** ✅ **COMPLETADA / VALIDADA FÍSICAMENTE**
+* **P2-02 — Cold Start / LauncherViewModel.loadState():** ⏳ **PRÓXIMA FASE / AUDITORÍA ARQUITECTÓNICA PENDIENTE**
 
-### Principio Fundamental de Rendimiento
-NovaLauncher **NO** debe intentar maximizar el consumo de CPU/GPU/RAM constantemente. La estrategia arquitectónica oficial es:
-> *"Usar únicamente los recursos necesarios para mantener la experiencia objetivo y aumentar/reducir la calidad dinámicamente cuando la capacidad y la carga real del dispositivo lo permitan."*
+---
+
+### P1 — Infraestructura y Baseline Oficial de Referencia
+
+Se cuenta con infraestructura de medición cuantitativa real, aislada en el módulo `:benchmark` (`com.android.test`), ejecutada sobre hardware físico sin modificar la app de producción en Release:
+* **Módulo:** `:benchmark` (Jetpack Macrobenchmark 1.3.3, UIAutomator 2.3.0, AndroidX Test Runner 1.6.2).
+* **Test Suites:** `StartupBenchmark` (`P1-STARTUP-COLD`, `P1-STARTUP-WARM`) y `DrawerFrameBenchmark` (`P1-DRAWER-SCROLL`, `P1-DRAWER-SEARCH`).
+* **BuildType:** `benchmark` (`initWith(release)`, R8 minificado habilitado, shrinking activo, `<profileable android:shell="true" />`).
+* **Documentación Oficial:** [`docs/PERFORMANCE_BASELINE_P1.md`](file:///c:/Users/migue/AndroidStudioProjects/AnimeLauncher/docs/PERFORMANCE_BASELINE_P1.md).
+
+#### Dispositivo Físico de Referencia (Baseline Congelada)
+* **Modelo:** POCO X6 5G (`23122PCD1G`, codename `garnet`)
+* **SoC / CPU:** Qualcomm Snapdragon 7s Gen 2 (8 núcleos hasta 2.40 GHz, frecuencias sin modificar)
+* **Memoria RAM:** 12 GB LPDDR4X (~4.7 GB disponible en ejecución)
+* **Sistema Operativo:** Android 16 (API 36, user/release-keys)
+* **Pantalla / Refresh Rate:** 1220×2712 px @ 120.0 Hz nativos (presupuesto de frame objetivo: **8.33 ms**)
+
+#### Baseline de Startup (Congelada)
+* **Cold TTID:** Mínimo: 537 ms | Mediana: **739 ms** | Máximo: 978 ms | Media: 736.8 ms
+* **Warm TTID:** Mínimo: 120 ms | Mediana: **139 ms** | Máximo: 170 ms | Media: 144.0 ms (81.2% más rápido que cold)
+* **TTFD:** No disponible actualmente porque la app no implementa `reportFullyDrawn()`. *(Regla estricta: NO inventar métricas ni estimar valores teóricos).*
+
+#### Baseline de Frames en App Drawer (Congelada)
+* **P1-DRAWER-SCROLL (120 Hz):**
+  * `frameDurationCpuMs`: P50 = 5.9 ms | P90 = 11.4 ms | P95 = 12.9 ms | P99 = 30.0 ms
+  * `frameOverrunMs`: P50 = -0.04 ms | P90 = 9.75 ms | P95 = 10.35 ms | P99 = 24.62 ms
+* **P1-DRAWER-SEARCH (Baseline previa a optimización):**
+  * `frameDurationCpuMs`: P50 = 8.2 ms | P90 = 20.9 ms | P95 = 31.6 ms | P99 = 66.6 ms (pico en traza: 218.3 ms)
+  * `frameOverrunMs`: P50 = 2.5 ms | P90 = 23.9 ms | P95 = 41.7 ms | P99 = 112.5 ms
+
+---
+
+### P2-01 — Optimización Quirúrgica del Search del App Drawer (✅ COMPLETADA / VALIDADA FÍSICAMENTE)
+
+* **Causa Técnica Confirmada:** En cada pulsación de tecla, `buildDrawerData` ejecutaba en el hilo principal: llamadas JNI a `Normalizer.normalize(..., Form.NFD)` por cada app instalada, `groupBy` repetido, reordenamiento alfabético O(N log N) con `sortedWith` y reconstrucción efímera de objetos `DrawerListItem`.
+* **Solución Quirúrgica:**
+  1. Desacoplamiento de trabajo estable (`prepareDrawerCategory`) y dinámico (`filterDrawerData`).
+  2. La estructura categorizada y ordenada alfabéticamente se prepara **una única vez** al cambiar apps o categorías.
+  3. Pre-normalización de nombres (`lowerName`) en memoria transitoria local.
+  4. Filtrado directo O(N) por `searchQuery` reutilizando instancias precalculadas, sin sorting, sin grouping y con cero llamadas a `Normalizer`.
+  5. Retorno instantáneo O(1) de `baseData` cuando la búsqueda está vacía.
+
+#### Resultados Comparativos Empíricos (Hardware POCO X6 5G — 120 Hz)
+
+| Métrica | Baseline P1 (Antes) | Optimizado P2-01 (Después) | Delta Numérico | Delta % |
+| :--- | :---: | :---: | :---: | :---: |
+| **`frameDurationCpuMs` P50** | 8.2 ms | **5.2 ms** | -3.0 ms | **-36.6%** |
+| **`frameDurationCpuMs` P90** | 20.9 ms | **14.6 ms** | -6.3 ms | **-30.1%** |
+| **`frameDurationCpuMs` P95** | 31.6 ms | **19.9 ms** | -11.7 ms | **-37.0%** |
+| **`frameDurationCpuMs` P99** | 66.6 ms | **34.4 ms** | -32.2 ms | **-48.3%** |
+| **`frameOverrunMs` P50** | 2.5 ms | **1.6 ms** | -0.9 ms | **-36.0%** |
+| **`frameOverrunMs` P90** | 23.9 ms | **12.9 ms** | -11.0 ms | **-46.0%** |
+| **`frameOverrunMs` P95** | 41.7 ms | **17.1 ms** | -24.6 ms | **-59.0%** |
+| **`frameOverrunMs` P99** | 112.5 ms | **36.3 ms** | -76.2 ms | **-67.7%** |
+
+* **Validaciones Aprobadas:**
+  * Pruebas Unitarias: **62/62 PASS** (incluyendo 10 pruebas de equivalencia en `DrawerSearchPerformanceUnitTest`).
+  * `assembleDebug` PASS, `lintDebug` PASS (0 errores), `bundleRelease` PASS.
+  * Validación Física en POCO X6: Búsqueda instantánea sin stuttering perceptible; scroll y `AlphabetIndexRail` sin regresiones.
+* **Evaluación Sobria:** Aunque P50 (5.2 ms) opera dentro del presupuesto de 120 Hz (< 8.33 ms), P95 (19.9 ms) y P99 (34.4 ms) continúan por encima del umbral; cualquier mejora adicional requerirá profiling profundo antes de planificar otra intervención.
+
+---
+
+### Incidente de Benchmark y Regla Permanente
+
+> [!WARNING]
+> **Incidente Registrado:** Durante la preparación del entorno de benchmark se desinstaló temporalmente el paquete activo `com.daybreak.animelauncher`, lo que requirió reinstalarlo manualmente al ser el launcher home predeterminado del sistema.
+>
+> **Regla Permanente de Operación:**
+> **"NO DESINSTALAR `com.daybreak.animelauncher` SI ES EL HOME ACTIVO."**
+> Para benchmarking y pruebas futuras utilizar exclusivamente `am force-stop`, cambio transitorio de foreground a Settings (`am start -S com.android.settings/.Settings`), o reemplazo directo (`install -r -t`). Esto no constituye un bug de producción.
+
+---
+
+### Próximo Hotspot: P2-02 — Cold Start / LauncherViewModel.loadState()
+
+* **Estado:** ⏳ **PRÓXIMA FASE / AUDITORÍA ARQUITECTÓNICA PENDIENTE**
+* **Hotspot Identificado Estáticamente:**
+  ```text
+  LauncherViewModel.loadState()
+    ├── SharedPreferences (I/O en hilo principal)
+    ├── Deserialización Gson síncrona
+    ├── validateAndCleanWidgets()
+    └── AppWidgetManager IPC (múltiples llamadas transaccionales a system_server)
+        └── Todo ejecutado antes de emitir el primer LauncherState utilizable
+  ```
+* **Baseline Actual:** Cold TTID Mediana = **739 ms**.
+* **Declaración de Hechos vs Hipótesis:**
+  * `loadState()` **NO** ha sido optimizado todavía.
+  * `saveState()` **NO** ha sido optimizado todavía.
+  * `LauncherState` **NO** ha sido marcado con `@Immutable` ni `@Stable`.
+  * Estas observaciones son hipótesis de trabajo estáticas, no cambios ejecutados.
+
+#### Reglas Estrictas de Operación para P2-02
+Antes de modificar cualquier línea de código en `loadState()`:
+1. Claude debe realizar una auditoría de diseño arquitectónico exhaustiva sobre el flujo real.
+2. **Prohibido** implementar directamente carga asíncrona a ciegas.
+3. Determinar con precisión qué datos son críticos para renderizar el primer frame y qué trabajo puede diferirse.
+4. Analizar riesgos de estado parcial (interfaz transitoria mientras se completan widgets o categorías).
+5. Analizar sincronización de widgets, fondo de pantalla, categorías y race conditions potenciales.
+6. Analizar impacto en cold start vs warm start y persistencia.
+7. Diseñar una estrategia de medición empírica antes/después con Macrobenchmark.
+
+---
+
+### Workflow Oficial de Performance Engineering
 
 ```text
-DEVICE CAPABILITY  +  CURRENT LOAD  +  FRAME BUDGET
-                        ↓
-       ADAPTIVE QUALITY / RESOURCE BUDGET
+P0 Auditoría Estática
+       ↓
+P1 Baseline Cuantitativa (:benchmark, TTID, TTFD, Frames)
+       ↓
+P2-01 Optimización Search (DrawerListItems / AppDrawerScreen) [COMPLETADA]
+       ↓
+P2-02 Cold Start / loadState() (Auditoría Arquitectónica) [PRÓXIMA FASE]
+       ↓
+P2-03 saveState() (Mutaciones y persistencia no síncrona)
+       ↓
+P2-04 Compose Stability (Profiling de recomposiciones en LauncherState)
+       ↓
+Auditoría Profunda de Memoria / CPU / GPU
+       ↓
+Metodología Multigama (Gama baja, media y alta)
+       ↓
+Adaptive Quality / Resource Budget
+       ↓
+Baseline Profiles & Startup Profiles
 ```
-* **Objetivos concretos:** Mantener 120/90/60 FPS estables según pantalla, reducir jank (frames caídos), eliminar trabajo redundante en segundo plano, preservar batería, contener presión de memoria y permitir calidad ultra solo cuando sea seguro.
 
-### Modelo de Capacidad del Dispositivo (Hipótesis para la Auditoría)
-No clasificar dispositivos únicamente por fabricante o modelo comercial. Investigar un perfil de capacidades observable y conservador:
-* Memoria RAM total y disponible (`ActivityManager.MemoryInfo`).
-* Nivel de API / Versión de Android.
-* Resolución nativa y tasa de refresco (`Display.mode`).
-* Capacidad de CPU/GPU inferida de forma ligera y no invasiva.
-* Presión de memoria del sistema (`onTrimMemory`).
-* Estado térmico cuando la API esté disponible (`PowerManager.OnThermalStatusChangedListener`).
-* Perfiles conceptuales hipotéticos: `CONSTRAINED`, `STANDARD`, `HIGH` *(Hipótesis de diseño; Claude evaluará si son necesarios o si conviene un modelo continuo).*
-
-### Quality Budget (Presupuesto de Calidad)
-Cada subsistema potencialmente costoso debe tener un presupuesto evaluado:
-* Animaciones y Motion System.
-* Blur y transparencias en GlassCard.
-* Wallpaper dinámico de video y prebuffering.
-* Cantidad de recursos precargados y tamaño de cachés (`IconCache`).
-* Procesamiento de imágenes y Adaptive Theming.
-* Ciclo de vida y actualización de widgets nativos.
-* Recomposiciones y frecuencia de emisión de estados en Compose.
-* *Regla:* Primero medir para determinar qué es realmente costoso y qué ya está optimizado.
-
-### Filosofía de Optimización
-```text
-MEDIR  →  LOCALIZAR  →  CAMBIAR (QUIRÚRGICO)  →  MEDIR OTRA VEZ
-```
-* **Prohibido:** `SUPONER → CAMBIAR TODO → ESPERAR QUE SEA MÁS RÁPIDO`.
-* Toda optimización debe contar con: hipótesis formal, métrica asociada, baseline medido, cambio mínimo aislado, comparativa cuantitativa antes/después y validación física en hardware real.
-
-### Escenarios Críticos a Medir (Journeys Candidatos A–T)
-1. **A.** Cold start (desde proceso muerto).
-2. **B.** Warm start (regreso desde segundo plano).
-3. **C.** Home completamente cargado y reposo.
-4. **D.** Abrir y cerrar App Drawer.
-5. **E.** Scroll rápido del Drawer (124+ apps).
-6. **F.** Scrubbing continuo del `AlphabetIndexRail`.
-7. **G.** Cambio de categorías (swipe y tabs).
-8. **H.** Búsqueda en tiempo real de aplicaciones.
-9. **I.** Apertura y cierre de Settings general.
-10. **J.** Apertura y manipulación de sliders en Advanced Settings.
-11. **K.** Renderizado de Widgets nativos en pantalla de inicio.
-12. **L.** Widgets durante scroll y paginación horizontal.
-13. **M.** Wallpaper de imagen estática (carga y render).
-14. **N.** Wallpaper de video en reproducción continua.
-15. **O.** Regreso desde otra aplicación externa pesada (TikTok/Cámara).
-16. **P.** Transiciones del Motion System.
-17. **Q.** Cambio de fondo de pantalla en vivo.
-18. **R.** Flujo de análisis y generación de Adaptive Theming.
-19. **S.** Uso prolongado sostenido (fugas de memoria / retención de buffers).
-20. **T.** Comportamiento bajo presión extrema de memoria (`TRIM_MEMORY`).
-
-### Métricas Candidatas
-* **Startup:** Time To Initial Display (TTID), Time To Full Display (TTFD).
-* **Runtime / Jank:** `frameDurationCpuMs`, `frameOverrunMs`, percentiles P50, P90, P95, P99 de renderizado.
-* **Memoria:** PSS / RSS usado, tasa de crecimiento, frecuencia y pausas de GC, detección de fugas.
-* **CPU/GPU:** Porcentaje de uso en reposo vs interacción, picos y temperatura.
-* **Batería:** Consumo energético por trabajo redundante.
-* *Nota:* Los valores objetivo se establecerán a partir del baseline empírico; no se inventarán umbrales arbitrarios.
-
-### Herramientas de Auditoría a Evaluar
-* Jetpack Macrobenchmark (priorizando recorridos reales de usuario en hardware físico).
-* `FrameTimingMetric` y `StartupTimingMetric`.
-* Android Studio Profiler (CPU, Memory, Energy).
-* Perfetto / System Trace.
-* Baseline Profiles y Startup Profiles (evaluar preparación del proyecto, impacto esperado y coste de mantenimiento).
-
-### Áreas de Investigación en Jetpack Compose (Sin prejuzgar bugs)
-* Estabilidad de parámetros y lambdas (`@Stable`, `@Immutable`).
-* Uso de `derivedStateOf` vs lecturas directas.
-* Defer reads mediante lambdas de Modifier (`graphicsLayer { alpha = ... }`, `offset { ... }`).
-* Claves explícitas (`key`) y `contentType` en `LazyColumn` / `LazyVerticalGrid`.
-* Evitar recomposiciones innecesarias en observadores de alta frecuencia.
-
-### Multigama — Objetivo Real
-* La aplicación debe comportarse de forma excelente en gama baja (2-3 GB RAM, CPUs modestas), gama media (POCO X6 5G de referencia) y gama alta (SoCs flagship, 120+ Hz).
-* La auditoría debe proponer una metodología para validar o simular dispositivos con restricciones sin depender exclusivamente del POCO X6.
-
-### Lo Que NO Se Debe Hacer (Anti-Patrones)
-* NO realizar optimizaciones globales sin datos de profiling previos.
-* NO eliminar funcionalidades ni degradar la calidad visual por "intuición de performance".
-* NO modificar componentes protegidos sin evidencia reproducible.
-* NO agregar cachés ni concurrencia arbitraria sin cuantificar su beneficio y consumo de RAM.
-* NO tocar widgets estables ni eliminar animaciones ya aprobadas.
-* NO tomar mediciones en modo Debug como referencia de rendimiento de Release.
-
-### Performance Regression Policy
-Toda optimización debe respetar la matriz: **FUNCIONALIDAD + PERFORMANCE**. Un cambio no se acepta si mejora una métrica aislada pero degrada la experiencia del usuario (ej. eliminar jank pero provocar parpadeo de placeholders, o acelerar el arranque pero romper la carga de widgets).
-
-### Estado de Rendimiento Actual Demostrado
-* `IconCache = 128` y Drawer en `LazyColumn` plana validados físicamente a 120 FPS sin jank con 124 apps instaladas.
-* Nova Motion System 6/6 completamente validado.
-* Adaptive Wallpaper Theming opera en memoria transitoria sin retención de recursos.
-* Defecto de video resume intermitente aislado en `VideoWallpaperManager` como tarea independiente.
-* No existen aún baselines formales de Macrobenchmark, capability profile dinámico ni quality budget implementado.
+* **Regla Inquebrantable:**
+  ```text
+  MEDIR  →  LOCALIZAR  →  CAMBIAR (QUIRÚRGICO)  →  MEDIR OTRA VEZ
+  ```
 
 ---
 
 ## 7. Próxima Acción Oficial
 
-* **NEXT:** `Performance Engineering — Architecture & Measurement Audit`
-* **Primera Acción:** Claude realizará una auditoría profunda de rendimiento y escalabilidad arquitectónica sobre el código real del proyecto antes de cualquier intervención.
-* **Alcance de la Auditoría:** Inspección de arquitectura, identificación de cuellos de botella reales, diseño de baselines, selección de critical user journeys, propuesta metodológica multigama, evaluación de Macrobenchmark/Baseline Profiles y definición de paquetes mínimos de trabajo.
-* **Restricción:** Claude **NO** debe modificar código del proyecto.
+* **NEXT:** `Performance Engineering — Fase P2-02: Auditoría Arquitectónica y Diseño de Cold Start (LauncherViewModel.loadState())`.
+* **Responsable:** Claude realizará una auditoría profunda de arquitectura y diseño antes de cualquier modificación de código.
+* **Restricción Estricta:** Cero modificaciones de código en producción durante la fase de auditoría.
 
 ---
 
@@ -323,16 +368,17 @@ Toda optimización debe respetar la matriz: **FUNCIONALIDAD + PERFORMANCE**. Un 
 ## 10. Validaciones Automatizadas Consolidadas
 
 * `git diff --check`: **PASS** (0 errores de formato, fin de línea o sintaxis).
-* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (52/52 pruebas unitarias aprobadas al 100%).
-* `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado e instalado exitosamente).
+* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (**62/62 pruebas unitarias aprobadas al 100%**).
+* `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado e instalado exitosamente en POCO X6).
 * `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores).
 * `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Minificación R8 y `lintVitalRelease` exitosos; AAB generado).
+* Suite de Benchmarks en Hardware Físico (`POCO X6 5G`): **PASS** (`StartupBenchmark` + `DrawerFrameBenchmark`).
 
 ---
 
 ## 11. Tareas Pendientes y Hoja de Ruta
 
-1. **Performance Engineering — Auditoría Inicial por Claude:** Inspección arquitectónica y diseño del plan de medición de rendimiento multigama.
+1. **Performance Engineering — Fase P2-02 (Cold Start / loadState):** Auditoría arquitectónica y diseño para desacoplar el I/O síncrono y llamadas IPC de widgets en el arranque inicial.
 2. **Estabilización de Video Resume (Independiente):** Diagnóstico y corrección de la re-vinculación de `TextureView` en `VideoWallpaperManager` al regresar de apps pesadas.
 3. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
 4. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.

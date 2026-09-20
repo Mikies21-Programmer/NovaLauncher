@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.daybreak.animelauncher.benchmark-mergeBenchmarkResources-15:/values-nl/values-nl.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\0f7d3ed38717bab2ee0f15f40ea8da19\\transformed\\core-1.9.0\\res\\values-nl\\values-nl.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "100",
+                        "endOffsets": "151"
+                    }
+                }
+            ]
+        }
+    ]
+}

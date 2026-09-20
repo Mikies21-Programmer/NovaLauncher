@@ -128,20 +128,22 @@ fun AppDrawerScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    val drawerData = remember(searchQuery, selectedCategoryIndex, installedApps, categories) {
+    // 1. TRABAJO ESTABLE: Se prepara exclusivamente cuando cambian las apps instaladas,
+    // la categoría seleccionada o la lista de categorías. Cero re-sorting o re-grouping durante Search.
+    val preparedCategory = remember(selectedCategoryIndex, installedApps, categories) {
         val appsInCat = if (currentCategory.id == "all") {
             installedApps
         } else {
-            installedApps.filter { it.packageName != null && currentCategory.packageNames.contains(it.packageName) }
+            val catPackages = currentCategory.packageNames
+            installedApps.filter { it.packageName != null && catPackages.contains(it.packageName) }
         }
-        
-        val searchFiltered = if (searchQuery.isBlank()) {
-            appsInCat
-        } else {
-            appsInCat.filter { it.name.contains(searchQuery, ignoreCase = true) }
-        }
+        prepareDrawerCategory(appsInCat)
+    }
 
-        buildDrawerData(searchFiltered)
+    // 2. TRABAJO DEPENDIENTE DE SEARCH: Filtrado directo O(N) sin grouping, sin sorting
+    // y reutilizando instancias estables.
+    val drawerData = remember(preparedCategory, searchQuery) {
+        filterDrawerData(preparedCategory, searchQuery)
     }
 
     // Letra activa derivada de la posición real de la lista, considerando tanto el inicio
