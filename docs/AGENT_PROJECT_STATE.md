@@ -45,6 +45,23 @@
       6. *Resume Fade:* Fade sutil (~100 ms) al regresar de apps externas.
     * **Corrección False Trigger Resume Fade:** Sustitución de `ON_PAUSE` por `ON_STOP` en el observador de ciclo de vida, erradicando el micro-parpadeo al presionar botón Home en pantalla principal.
     * **Componentes Protegidos:** Intactos al 100% (`ShortcutIcon`, `IconCache`, `LauncherViewModel`, `VideoWallpaperManager`, `VideoBackground`, `WidgetHostManager`, `NativeWidgetView`, `ViewOne`, `ViewTwo`, `LauncherAccessibilityService`, `NotificationMonitorService`, `LauncherNavState`).
+  * **ADAPTIVE WALLPAPER THEMING — FASE 1: FUNDAMENTOS (Implementación inicial / validación pendiente):**
+    * **Objetivo:** Creación del subsistema de análisis de wallpapers estáticos (`Bitmap` → `WallpaperAnalyzer` → `ThemePalette`) completamente desacoplado del sistema visual, Compose, ViewModels y persistencia.
+    * **Arquitectura:**
+      * `ThemePalette`: Modelo inmutable con `@get:ColorInt dominantColor`, `vibrantColor`, `mutedColor`, `isDark: Boolean`, y `averageLuminance: Float`. Incluye `DEFAULT` seguro y neutro para recuperaciones sin excepciones.
+      * `WallpaperAnalyzer`: Objeto singleton con `analyze(bitmap, dispatcher = Dispatchers.Default)` y `analyzeSync(bitmap)`.
+    * **Dependencia Utilizada:** `androidx.palette:palette-ktx:1.0.0` (mínima necesaria añadida a `app/build.gradle.kts`) y `org.robolectric:robolectric:4.14.1` en `testImplementation`.
+    * **Estrategia de Memoria y Performance:**
+      * Redimensionamiento proporcional previo al análisis a una copia de máximo ~200x200 px (`TARGET_MAX_DIMENSION = 200`), minimizando el uso de RAM a ~160 KB.
+      * Reciclado explícito e inmediato del bitmap temporal en bloque `finally`. El bitmap original del llamador nunca es reciclado ni modificado.
+      * Análisis no bloqueante despachado en `Dispatchers.Default`. Cero análisis en recomposiciones ni en el ciclo de vida de la UI.
+    * **Robustez y Calidad del Color:**
+      * Desactivación de filtros restrictivos de saturación/luminancia mediante `.clearFilters()` en `Palette.Builder`, permitiendo clasificar adecuadamente fondos puros oscuros, claros o monocromáticos.
+      * Fallbacks encadenados para swatches faltantes (`vibrant` → `light/dark vibrant` → `dominant` → `muted` → `DEFAULT`).
+      * Cálculo de luminancia promedio ponderada por la población de cada swatch (`ColorUtils.calculateLuminance`).
+      * Clasificación coherente: `isDark = averageLuminance < 0.5f`.
+    * **Tests Unitarios:**
+      * Suite `WallpaperAnalyzerTest` con 11 pruebas unitarias cubriendo: imágenes coloridas, oscuras, claras, monocromáticas, ausencia de vibrant swatch, ausencia de muted swatch, resoluciones diminutas (2x2), resoluciones grandes (800x1200), bitmaps nulos/reciclados, consistencia determinista y ejecución asíncrona suspendida. 100% PASS.
 
 ---
 
