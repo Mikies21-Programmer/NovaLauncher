@@ -1,16 +1,16 @@
 
 
-2e81d6a9primary"∏JµJ
-Ò)
-com.google.testing.platform“PLUGIN_ERROR"TEST*ãErrorName: INSTALL_FAILED_USER_RESTRICTED
+2e81d6a9primary"ÌJÍJ
+á*
+com.google.testing.platform“PLUGIN_ERROR"TEST*êErrorName: INSTALL_FAILED_VERIFICATION_FAILURE
 NameSpace: DdmlibAndroidDeviceController
 ErrorCode: 1
 ErrorType: TEST
-Message: Failed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk]:™'com.google.testing.platform.core.error.UtpException: ErrorName: PLUGIN_ERROR
+Message: Failed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk]:ª'com.google.testing.platform.core.error.UtpException: ErrorName: PLUGIN_ERROR
 NameSpace: com.google.testing.platform
 ErrorCode: 2002
 ErrorType: TEST
-Message: ErrorName: INSTALL_FAILED_USER_RESTRICTED
+Message: ErrorName: INSTALL_FAILED_VERIFICATION_FAILURE
 NameSpace: DdmlibAndroidDeviceController
 ErrorCode: 1
 ErrorType: TEST
@@ -42,14 +42,14 @@ Message: Failed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\A
 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
 	at java.base/java.lang.Thread.run(Thread.java:1583)
-Caused by: com.google.testing.platform.core.error.UtpException: ErrorName: INSTALL_FAILED_USER_RESTRICTED
+Caused by: com.google.testing.platform.core.error.UtpException: ErrorName: INSTALL_FAILED_VERIFICATION_FAILURE
 NameSpace: DdmlibAndroidDeviceController
 ErrorCode: 1
 ErrorType: TEST
 Message: Failed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk]
 	at com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDeviceController$executeAsync$deferred$1.invokeSuspend(DdmlibAndroidDeviceController.kt:273)
 	... 5 more
-Caused by: com.android.ddmlib.InstallException: Failed to commit install session 357524622 with command package install-commit 357524622. Error: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+Caused by: com.android.ddmlib.InstallException: Failed to commit install session 1007220573 with command package install-commit 1007220573. Error: INSTALL_FAILED_VERIFICATION_FAILURE: Install canceled by user
 	at com.android.ddmlib.SplitApkInstallerBase.installCommit(SplitApkInstallerBase.java:171)
 	at com.android.ddmlib.SplitApkInstaller.install(SplitApkInstaller.java:85)
 	at com.android.ddmlib.IDeviceSharedImpl.installPackages(IDeviceSharedImpl.java:395)
@@ -62,9 +62,9 @@ Caused by: com.android.ddmlib.InstallException: Failed to commit install session
 	at com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDevice.installPackages(DdmlibAndroidDevice.kt:80)
 	at com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDeviceController$executeAsync$deferred$1.invokeSuspend(DdmlibAndroidDeviceController.kt:251)
 	... 5 more
-æ 
-∫
-DdmlibAndroidDeviceControllerINSTALL_FAILED_USER_RESTRICTED"TEST*íFailed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk]:Ÿcom.google.testing.platform.core.error.UtpException: ErrorName: INSTALL_FAILED_USER_RESTRICTED
+› 
+À
+DdmlibAndroidDeviceController#INSTALL_FAILED_VERIFICATION_FAILURE"TEST*íFailed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk]:Âcom.google.testing.platform.core.error.UtpException: ErrorName: INSTALL_FAILED_VERIFICATION_FAILURE
 NameSpace: DdmlibAndroidDeviceController
 ErrorCode: 1
 ErrorType: TEST
@@ -75,7 +75,7 @@ Message: Failed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\A
 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
 	at java.base/java.lang.Thread.run(Thread.java:1583)
-Caused by: com.android.ddmlib.InstallException: Failed to commit install session 357524622 with command package install-commit 357524622. Error: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+Caused by: com.android.ddmlib.InstallException: Failed to commit install session 1007220573 with command package install-commit 1007220573. Error: INSTALL_FAILED_VERIFICATION_FAILURE: Install canceled by user
 	at com.android.ddmlib.SplitApkInstallerBase.installCommit(SplitApkInstallerBase.java:171)
 	at com.android.ddmlib.SplitApkInstaller.install(SplitApkInstaller.java:85)
 	at com.android.ddmlib.IDeviceSharedImpl.installPackages(IDeviceSharedImpl.java:395)
@@ -88,8 +88,8 @@ Caused by: com.android.ddmlib.InstallException: Failed to commit install session
 	at com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDevice.installPackages(DdmlibAndroidDevice.kt:80)
 	at com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDeviceController$executeAsync$deferred$1.invokeSuspend(DdmlibAndroidDeviceController.kt:251)
 	... 5 more
-˛
-˚*ôFailed to commit install session 357524622 with command package install-commit 357524622. Error: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user:‹com.android.ddmlib.InstallException: Failed to commit install session 357524622 with command package install-commit 357524622. Error: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+å
+â*†Failed to commit install session 1007220573 with command package install-commit 1007220573. Error: INSTALL_FAILED_VERIFICATION_FAILURE: Install canceled by user:„com.android.ddmlib.InstallException: Failed to commit install session 1007220573 with command package install-commit 1007220573. Error: INSTALL_FAILED_VERIFICATION_FAILURE: Install canceled by user
 	at com.android.ddmlib.SplitApkInstallerBase.installCommit(SplitApkInstallerBase.java:171)
 	at com.android.ddmlib.SplitApkInstaller.install(SplitApkInstaller.java:85)
 	at com.android.ddmlib.IDeviceSharedImpl.installPackages(IDeviceSharedImpl.java:395)

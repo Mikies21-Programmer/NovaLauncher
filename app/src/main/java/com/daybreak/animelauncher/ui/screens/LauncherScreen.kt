@@ -366,7 +366,7 @@ fun LauncherScreen(
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = (navState == LauncherNavState.Home),
-            beyondViewportPageCount = 1,
+            beyondViewportPageCount = 0,
             key = { it },
             modifier = Modifier
                 .fillMaxSize()

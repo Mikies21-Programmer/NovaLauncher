@@ -112,4 +112,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
     add("benchmarkImplementation", "androidx.profileinstaller:profileinstaller:1.4.1")
+    add("benchmarkImplementation", "androidx.compose.runtime:runtime-tracing")
+    add("benchmarkImplementation", "androidx.tracing:tracing-perfetto:1.0.0")
 }

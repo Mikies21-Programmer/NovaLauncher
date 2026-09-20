@@ -16,6 +16,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR,LOW-BATTERY,UNLOCKED"
+        testInstrumentationRunnerArguments["androidx.benchmark.fullTracing.enable"] = "true"
     }
 
     buildTypes {
@@ -45,4 +46,6 @@ dependencies {
     implementation(libs.androidx.test.runner)
     implementation(libs.androidx.benchmark.macro)
     implementation(libs.androidx.test.uiautomator)
+    implementation("androidx.tracing:tracing-perfetto:1.0.0")
+    implementation("androidx.tracing:tracing-perfetto-binary:1.0.0")
 }

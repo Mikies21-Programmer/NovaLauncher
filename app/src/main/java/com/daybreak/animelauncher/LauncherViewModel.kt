@@ -243,44 +243,75 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
 
     private fun loadState(): LauncherState {
-        val json = prefs.getString("launcher_state", null)
-        var state = LauncherState()
-        if (json != null) {
-            try {
-                val loaded = gson.fromJson(json, LauncherState::class.java)
-                if (loaded != null) {
-                    state = loaded.copy(
-                        styleConfig = loaded.styleConfig ?: AdvancedStyleConfig(),
-                        viewConfigs = loaded.viewConfigs ?: listOf(
-                            ViewConfig(quote = "Dueño de mi propio destino"),
-                            ViewConfig(quote = "Explora el horizonte")
-                        ),
-                        hasCompletedOnboarding = loaded.hasCompletedOnboarding,
-                        onboardingStep = loaded.onboardingStep
-                    )
+        android.os.Trace.beginSection("LOAD_STATE_TOTAL")
+        try {
+            // ── BLOQUE 1: Lectura de SharedPreferences (STATE_READ) ──────────────
+            android.os.Trace.beginSection("STATE_READ")
+            val json = prefs.getString("launcher_state", null)
+            android.os.Trace.endSection() // STATE_READ
+
+            var state = LauncherState()
+
+            if (json != null) {
+                // ── BLOQUE 2: Deserialización Gson del estado principal (GSON_STATE) ──
+                android.os.Trace.beginSection("GSON_STATE")
+                try {
+                    val loaded = gson.fromJson(json, LauncherState::class.java)
+                    if (loaded != null) {
+                        state = loaded.copy(
+                            styleConfig = loaded.styleConfig ?: AdvancedStyleConfig(),
+                            viewConfigs = loaded.viewConfigs ?: listOf(
+                                ViewConfig(quote = "Dueño de mi propio destino"),
+                                ViewConfig(quote = "Explora el horizonte")
+                            ),
+                            hasCompletedOnboarding = loaded.hasCompletedOnboarding,
+                            onboardingStep = loaded.onboardingStep
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    android.os.Trace.endSection() // GSON_STATE
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
-        }
-        // Carga desacoplada de estilo si existe configuración dedicada
-        val styleJson = prefs.getString("launcher_style_config", null)
-        if (styleJson != null) {
-            try {
-                val loadedStyle = gson.fromJson(styleJson, AdvancedStyleConfig::class.java)
-                if (loadedStyle != null) {
-                    state = state.copy(styleConfig = loadedStyle)
+
+            // ── BLOQUE 3: Lectura de SharedPreferences para el estilo (STYLE_READ) ──
+            android.os.Trace.beginSection("STYLE_READ")
+            // Carga desacoplada de estilo si existe configuración dedicada
+            val styleJson = prefs.getString("launcher_style_config", null)
+            android.os.Trace.endSection() // STYLE_READ
+
+            if (styleJson != null) {
+                // ── BLOQUE 4: Deserialización Gson del estilo (GSON_STYLE) ──────────
+                android.os.Trace.beginSection("GSON_STYLE")
+                try {
+                    val loadedStyle = gson.fromJson(styleJson, AdvancedStyleConfig::class.java)
+                    if (loadedStyle != null) {
+                        state = state.copy(styleConfig = loadedStyle)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    android.os.Trace.endSection() // GSON_STYLE
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+
+            // ── BLOQUE 5: Validación IPC de widgets (WIDGET_VALIDATION) ──────────
+            android.os.Trace.beginSection("WIDGET_VALIDATION")
+            try {
+                // Validación de widgets contra providers instalados para purgar huérfanos
+                val cleanedViewConfigs = state.viewConfigs.map { config ->
+                    config.copy(nativeWidgetIds = widgetHostManager.validateAndCleanWidgets(config.nativeWidgetIds))
+                }
+                state = state.copy(viewConfigs = cleanedViewConfigs)
+            } finally {
+                android.os.Trace.endSection() // WIDGET_VALIDATION
+            }
+
+            return state
+        } finally {
+            android.os.Trace.endSection() // LOAD_STATE_TOTAL
         }
-        // Validación de widgets contra providers instalados para purgar huérfanos
-        val cleanedViewConfigs = state.viewConfigs.map { config ->
-            config.copy(nativeWidgetIds = widgetHostManager.validateAndCleanWidgets(config.nativeWidgetIds))
-        }
-        state = state.copy(viewConfigs = cleanedViewConfigs)
-        return state
     }
 
     private fun saveState(newState: LauncherState) {

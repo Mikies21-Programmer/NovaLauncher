@@ -136,82 +136,116 @@ class MainActivity : ComponentActivity() {
     @android.annotation.SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        
-        applySystemBarsPolicy(viewModel.state.value.gesturesConfig.immersiveMode)
+        // ── P2-02B: MAIN-ONCREATE-TOTAL ──────────────────────────────────────
+        android.os.Trace.beginSection("MAIN-ONCREATE-TOTAL")
+        try {
+            enableEdgeToEdge()
 
-        // Registrar receptor de desbloqueo de pantalla
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_USER_PRESENT)
-            addAction(Intent.ACTION_SCREEN_OFF)
-        }
-        registerReceiver(screenReceiver, filter)
+            // ── P2-02B: VIEWMODEL-ACCESS ─────────────────────────────────────
+            // Primer acceso al delegado viewModels() — fuerza creación de VM
+            // y en consecuencia ejecuta loadState() de forma síncrona.
+            android.os.Trace.beginSection("VIEWMODEL-ACCESS")
+            @Suppress("UNUSED_VARIABLE")
+            val vmRef = viewModel
+            android.os.Trace.endSection() // VIEWMODEL-ACCESS
 
-        setContent {
-            AnimeLauncherTheme {
-                val state by viewModel.state.collectAsState()
-                val themeTokens = remember(state.styleConfig) {
-                    LauncherThemeTokens.fromAdvancedStyleConfig(state.styleConfig)
+            // ── P2-02B: APPLY-SYSTEM-BARS ────────────────────────────────────
+            android.os.Trace.beginSection("APPLY-SYSTEM-BARS")
+            try {
+                applySystemBarsPolicy(viewModel.state.value.gesturesConfig.immersiveMode)
+            } finally {
+                android.os.Trace.endSection() // APPLY-SYSTEM-BARS
+            }
+
+            // ── P2-02B: REGISTER-RECEIVER ────────────────────────────────────
+            android.os.Trace.beginSection("REGISTER-RECEIVER")
+            try {
+                // Registrar receptor de desbloqueo de pantalla
+                val filter = IntentFilter().apply {
+                    addAction(Intent.ACTION_USER_PRESENT)
+                    addAction(Intent.ACTION_SCREEN_OFF)
                 }
+                registerReceiver(screenReceiver, filter)
+            } finally {
+                android.os.Trace.endSection() // REGISTER-RECEIVER
+            }
 
-                CompositionLocalProvider(LocalLauncherThemeTokens provides themeTokens) {
-                    Scaffold(
-                        modifier = Modifier.fillMaxSize(),
-                        containerColor = androidx.compose.ui.graphics.Color.Black
-                    ) { _ ->
-                        val navController = rememberNavController()
-                        var openAdvancedInSettings by remember { mutableStateOf(false) }
-                        LaunchedEffect(navController) {
-                            navControllerRef = navController
+            // ── P2-02B: SETCONTENT ───────────────────────────────────────────
+            // NOTA: setContent entrega el árbol Compose al runtime.
+            // NO implica que la composición ni el primer frame hayan terminado.
+            android.os.Trace.beginSection("SETCONTENT")
+            try {
+                setContent {
+                    AnimeLauncherTheme {
+                        val state by viewModel.state.collectAsState()
+                        val themeTokens = remember(state.styleConfig) {
+                            LauncherThemeTokens.fromAdvancedStyleConfig(state.styleConfig)
                         }
 
-                        val startDest = if (state.hasCompletedOnboarding) "launcher" else "onboarding"
+                        CompositionLocalProvider(LocalLauncherThemeTokens provides themeTokens) {
+                            Scaffold(
+                                modifier = Modifier.fillMaxSize(),
+                                containerColor = androidx.compose.ui.graphics.Color.Black
+                            ) { _ ->
+                                val navController = rememberNavController()
+                                var openAdvancedInSettings by remember { mutableStateOf(false) }
+                                LaunchedEffect(navController) {
+                                    navControllerRef = navController
+                                }
 
-                        LaunchedEffect(state.gesturesConfig.immersiveMode) {
-                            applySystemBarsPolicy(state.gesturesConfig.immersiveMode)
-                        }
+                                val startDest = if (state.hasCompletedOnboarding) "launcher" else "onboarding"
 
-                        NavHost(
-                            navController = navController,
-                            startDestination = startDest,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            composable("onboarding") {
-                                OnboardingScreen(
-                                    viewModel = viewModel,
-                                    onFinish = {
-                                        navController.navigate("launcher") {
-                                            popUpTo("onboarding") { inclusive = true }
-                                        }
-                                    }
-                                )
-                            }
+                                LaunchedEffect(state.gesturesConfig.immersiveMode) {
+                                    applySystemBarsPolicy(state.gesturesConfig.immersiveMode)
+                                }
 
-                            composable("launcher") {
-                                LauncherScreen(
-                                    viewModel = viewModel,
-                                    onNavigateToSettings = { openAdvanced ->
-                                        openAdvancedInSettings = openAdvanced
-                                        navController.navigate("settings") {
-                                            launchSingleTop = true
-                                        }
+                                NavHost(
+                                    navController = navController,
+                                    startDestination = startDest,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    composable("onboarding") {
+                                        OnboardingScreen(
+                                            viewModel = viewModel,
+                                            onFinish = {
+                                                navController.navigate("launcher") {
+                                                    popUpTo("onboarding") { inclusive = true }
+                                                }
+                                            }
+                                        )
                                     }
-                                )
-                            }
-                            composable("settings") {
-                                SettingsScreen(
-                                    viewModel = viewModel,
-                                    initialShowAdvanced = openAdvancedInSettings,
-                                    onBack = {
-                                        openAdvancedInSettings = false
-                                        navController.popBackStack()
+
+                                    composable("launcher") {
+                                        LauncherScreen(
+                                            viewModel = viewModel,
+                                            onNavigateToSettings = { openAdvanced ->
+                                                openAdvancedInSettings = openAdvanced
+                                                navController.navigate("settings") {
+                                                    launchSingleTop = true
+                                                }
+                                            }
+                                        )
                                     }
-                                )
+                                    composable("settings") {
+                                        SettingsScreen(
+                                            viewModel = viewModel,
+                                            initialShowAdvanced = openAdvancedInSettings,
+                                            onBack = {
+                                                openAdvancedInSettings = false
+                                                navController.popBackStack()
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
+            } finally {
+                android.os.Trace.endSection() // SETCONTENT
             }
+        } finally {
+            android.os.Trace.endSection() // MAIN-ONCREATE-TOTAL
         }
     }
 

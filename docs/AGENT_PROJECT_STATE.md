@@ -1,7 +1,7 @@
 # Estado Persistente del Proyecto — NovaLauncher (Agent State)
 
 > **Documento maestro de sincronización, continuidad operativa y auditoría entre sesiones, Antigravity y Claude.**<br>
-> *Última actualización: 19 de septiembre de 2026 (Cierre P1 + P2-01 — Performance Engineering).*<br>
+> *Última actualización: 20 de septiembre de 2026 (Cierre P2-03 EXP-PAGER-ZERO-PRELOAD — Performance Engineering).*<br>
 > *Regla de seguridad estricta: CERO secretos, contraseñas, keystores ni claves privadas en este repositorio.*
 
 ---
@@ -27,9 +27,11 @@
 | **P0** | Auditoría estática y localización de hotspots | ✅ **COMPLETADA** |
 | **P1** | Instrumentación (`:benchmark`) y Baseline Cuantitativa empírica | ✅ **COMPLETADA / VALIDADA** |
 | **P2-01** | Optimización Quirúrgica del Search del App Drawer | ✅ **COMPLETADA / VALIDADA FÍSICAMENTE** |
-| **P2-02** | Cold Start / `LauncherViewModel.loadState()` (Async / Deferred) | ⏳ **PRÓXIMA FASE / AUDITORÍA PENDIENTE** |
-| **P2-03** | Mutaciones / `LauncherViewModel.saveState()` (Debounced I/O) | ⏳ **PENDIENTE** |
-| **P2-04** | Estabilidad de Compose / Recomposiciones (`LauncherState`) | ⏳ **PENDIENTE** |
+| **P2-02A** | loadState Trace (I/O, Gson, Widgets en hilo principal) | ✅ **COMPLETADA** |
+| **P2-02B** | Cold Start Map (Timeline completo y delimitación de frames) | ✅ **COMPLETADA** |
+| **P2-02C** | Composition Trace (Perfetto track_event y hotspots de Compose) | ✅ **COMPLETADA** |
+| **P2-03** | EXP-PAGER-ZERO-PRELOAD (`beyondViewportPageCount = 0`) | ✅ **COMPLETADA / VALIDADA FÍSICAMENTE / CHECKPOINT PENDIENTE** |
+| **P2-04** | Siguiente Hotspot de Composición / Layout | ⏳ **AUDITORÍA PENDIENTE** |
 
 ---
 
@@ -189,7 +191,11 @@ Queda terminantemente prohibido modificar o refactorizar sin evidencia y aprobac
 * **P0 — Auditoría Estática de Hotspots:** ✅ **COMPLETADA**
 * **P1 — Instrumentación y Baseline Cuantitativa:** ✅ **COMPLETADA / VALIDADA**
 * **P2-01 — Optimización Quirúrgica del Search del App Drawer:** ✅ **COMPLETADA / VALIDADA FÍSICAMENTE**
-* **P2-02 — Cold Start / LauncherViewModel.loadState():** ⏳ **PRÓXIMA FASE / AUDITORÍA ARQUITECTÓNICA PENDIENTE**
+* **P2-02A — loadState Trace (I/O, Gson, Widgets en hilo principal):** ✅ **COMPLETADA**
+* **P2-02B — Cold Start Map (Timeline completo y delimitación de frames):** ✅ **COMPLETADA**
+* **P2-02C — Composition Trace (Perfetto track_event y hotspots de Compose):** ✅ **COMPLETADA**
+* **P2-03 — EXP-PAGER-ZERO-PRELOAD (`beyondViewportPageCount = 0`):** ✅ **COMPLETADA / VALIDADA FÍSICAMENTE / CHECKPOINT PENDIENTE**
+* **P2-04 — Siguiente Hotspot de Composición / Layout:** ⏳ **AUDITORÍA PENDIENTE**
 
 ---
 
@@ -208,7 +214,7 @@ Se cuenta con infraestructura de medición cuantitativa real, aislada en el mód
 * **Sistema Operativo:** Android 16 (API 36, user/release-keys)
 * **Pantalla / Refresh Rate:** 1220×2712 px @ 120.0 Hz nativos (presupuesto de frame objetivo: **8.33 ms**)
 
-#### Baseline de Startup (Congelada)
+#### Baseline de Startup (Congelada Histórica)
 * **Cold TTID:** Mínimo: 537 ms | Mediana: **739 ms** | Máximo: 978 ms | Media: 736.8 ms
 * **Warm TTID:** Mínimo: 120 ms | Mediana: **139 ms** | Máximo: 170 ms | Media: 144.0 ms (81.2% más rápido que cold)
 * **TTFD:** No disponible actualmente porque la app no implementa `reportFullyDrawn()`. *(Regla estricta: NO inventar métricas ni estimar valores teóricos).*
@@ -250,7 +256,6 @@ Se cuenta con infraestructura de medición cuantitativa real, aislada en el mód
   * Pruebas Unitarias: **62/62 PASS** (incluyendo 10 pruebas de equivalencia en `DrawerSearchPerformanceUnitTest`).
   * `assembleDebug` PASS, `lintDebug` PASS (0 errores), `bundleRelease` PASS.
   * Validación Física en POCO X6: Búsqueda instantánea sin stuttering perceptible; scroll y `AlphabetIndexRail` sin regresiones.
-* **Evaluación Sobria:** Aunque P50 (5.2 ms) opera dentro del presupuesto de 120 Hz (< 8.33 ms), P95 (19.9 ms) y P99 (34.4 ms) continúan por encima del umbral; cualquier mejora adicional requerirá profiling profundo antes de planificar otra intervención.
 
 ---
 
@@ -265,72 +270,116 @@ Se cuenta con infraestructura de medición cuantitativa real, aislada en el mód
 
 ---
 
-### Próximo Hotspot: P2-02 — Cold Start / LauncherViewModel.loadState()
+### P2-02 — Diagnóstico Integral de Cold Start (✅ COMPLETADA)
 
-* **Estado:** ⏳ **PRÓXIMA FASE / AUDITORÍA ARQUITECTÓNICA PENDIENTE**
-* **Hotspot Identificado Estáticamente:**
-  ```text
-  LauncherViewModel.loadState()
-    ├── SharedPreferences (I/O en hilo principal)
-    ├── Deserialización Gson síncrona
-    ├── validateAndCleanWidgets()
-    └── AppWidgetManager IPC (múltiples llamadas transaccionales a system_server)
-        └── Todo ejecutado antes de emitir el primer LauncherState utilizable
-  ```
-* **Baseline Actual:** Cold TTID Mediana = **739 ms**.
-* **Declaración de Hechos vs Hipótesis:**
-  * `loadState()` **NO** ha sido optimizado todavía.
-  * `saveState()` **NO** ha sido optimizado todavía.
-  * `LauncherState` **NO** ha sido marcado con `@Immutable` ni `@Stable`.
-  * Estas observaciones son hipótesis de trabajo estáticas, no cambios ejecutados.
+* **P2-02A (`loadState` Trace):** Se demostró empíricamente en variante optimizada `benchmark` (R8) que `loadState()` consume únicamente **10.06 ms** de mediana (~1.6% del Cold Start). No era el bottleneck dominante de 739 ms.
+* **P2-02B (Cold Start Map):** Mapeo exhaustivo de timeline en Perfetto (`linux.ftrace`):
+  * `bindApplication`: 87.29 ms
+  * `activityResume`: 96.31 ms
+  * **Primer `Choreographer#doFrame`:** **201.22 ms** (dominado por `AndroidOwner:onMeasure` en **85.09 ms**).
+* **P2-02C (Composition Trace):** Rastreo de composición con Perfetto `track_event`:
+  * Subcomposición de `BoxWithConstraints`: **20.83 ms** (ViewOne: 13.16 ms + ViewTwo: 7.67 ms).
+  * Multiplicación por `ShortcutIcon`: **18.65 ms** / 36 llamadas (~0.51 ms por instancia, costo nominal inflado por doble pase y precarga).
+  * Precomposición no deseada de `ViewTwo`: **9.49 ms** de composición propia en el primer frame.
+  * `ScaffoldLayout`: 10.93 ms (Material 3) y `NavHost`: 10.34 ms (router raíz).
 
-#### Reglas Estrictas de Operación para P2-02
-Antes de modificar cualquier línea de código en `loadState()`:
-1. Claude debe realizar una auditoría de diseño arquitectónico exhaustiva sobre el flujo real.
-2. **Prohibido** implementar directamente carga asíncrona a ciegas.
-3. Determinar con precisión qué datos son críticos para renderizar el primer frame y qué trabajo puede diferirse.
-4. Analizar riesgos de estado parcial (interfaz transitoria mientras se completan widgets o categorías).
-5. Analizar sincronización de widgets, fondo de pantalla, categorías y race conditions potenciales.
-6. Analizar impacto en cold start vs warm start y persistencia.
-7. Diseñar una estrategia de medición empírica antes/después con Macrobenchmark.
+---
+
+### P2-03 — EXP-PAGER-ZERO-PRELOAD (✅ COMPLETADA / VALIDADA FÍSICAMENTE / CHECKPOINT PENDIENTE)
+
+#### 1. Cambio Exacto Realizado
+En [LauncherScreen.kt:369](file:///c:/Users/migue/AndroidStudioProjects/AnimeLauncher/app/src/main/java/com/daybreak/animelauncher/ui/screens/LauncherScreen.kt#L369):
+```kotlin
+HorizontalPager(
+    state = pagerState,
+    userScrollEnabled = (navState == LauncherNavState.Home),
+    beyondViewportPageCount = 0, // Cambio exclusivo: de 1 a 0
+    key = { it },
+    ...
+```
+**Fue el único cambio productivo del experimento.** Cero cambios adicionales.
+
+#### 2. Resultados Oficiales (Hardware Real POCO X6 5G — 120 Hz)
+Medición formal con variante `benchmark` (R8, sin runtime-tracing que contamine CPU):
+
+* **Cold Start — Baseline A (`beyondViewportPageCount = 1`):**
+  * `TotalTime` median = **532 ms** (Runs: 548, 532, 519, 538, 523 ms)
+  * `WaitTime` median = **538 ms** (Runs: 551, 538, 525, 542, 527 ms)
+  * `Startup Jank Rate` = **16.29%**
+* **Cold Start — Baseline B (`beyondViewportPageCount = 0`):**
+  * `TotalTime` median = **519 ms** (Runs: 491, 505, 519, 615, 637 ms)
+  * `WaitTime` median = **523 ms** (Runs: 499, 511, 523, 620, 643 ms)
+  * `Startup Jank Rate` = **5.98%**
+* **Delta Cuantitativo:**
+  * `TotalTime` median = **-13 ms (-2.4%)**
+  * `WaitTime` median = **-15 ms (-2.8%)**
+  * `TotalTime` mínimo = **491 ms** (Récord histórico absoluto, rompe barrera de 500 ms)
+  * `Startup Jank Rate` = **-10.31% (-63.3% relativo)**
+* **Warm Start (5 runs):**
+  * `TotalTime` median = **124 ms** (Paridad 1:1, cero regresión).
+* **Primer Swipe ViewOne → ViewTwo (Hardware Real a 120 Hz / presupuesto 8.33 ms):**
+  * *Immediate (swipe en cuanto aparece Home):* P50 ≈ **5 ms** | P90 ≈ **10 ms** | P95 ≈ **14 ms** | Jank = **0.00%** (162 frames, 0 janky)
+  * *Delayed 300 ms:* P50 ≈ **6 ms** | P90 ≈ **8 ms** | P95 ≈ **13 ms** | Jank = **1.45%** (138 frames, 2 janky)
+  * *Repeated:* P50 ≈ **6 ms** | P90 ≈ **8 ms** | P95 ≈ **9 ms** | Jank = **0.00%** (142 frames, 0 janky)
+
+#### 3. Interpretación Sobria
+* **P2-03 se conserva porque:**
+  1. Mejora de forma reproducible la mediana de Cold Start (**-13 ms**).
+  2. Reduce drásticamente la contención y jank observada en startup (**-63.3%**).
+  3. No degrada Warm Start (**124 ms** paritario).
+  4. No degrada el primer swipe (P50 de 5 ms, holgadamente bajo el presupuesto de 8.33 ms a 120 Hz).
+  5. Cero regresiones visuales o funcionales en fondos, widgets o navegación durante la validación física.
+* **IMPORTANTE:** No afirmar que todos los 13 ms de mejora provienen exclusivamente de ViewTwo. Existe variabilidad entre runs; el resultado se registra como mejora empírica global del experimento A/B.
+
+#### 4. Decisión sobre ViewTwo
+* `ViewTwo` ya **NO** se precompone en cold start al operar con `beyondViewportPageCount = 0`.
+* **NO** realizar ahora otra optimización sobre `ViewTwo`, `ShortcutIcon` ni `BoxWithConstraints`. Cualquier cambio adicional requiere nuevo profiling y experimento aislado.
+
+---
+
+### Próximo Hotspot: P2-04 — Composición / Layout (⏳ AUDITORÍA PENDIENTE)
+
+* **Estado:** ⏳ **AUDITORÍA PENDIENTE**
+* **Candidatos documentados de P2-02C:**
+  1. `BoxWithConstraints` (Subcomposición en pase de layout).
+  2. `ShortcutIcon` (Granularidad de nodos e interacción táctil).
+  3. Composición inicial restante del árbol raíz.
+* **Regla Estricta:** **NO asumir ninguno como próximo cambio definitivo.** Claude deberá realizar una auditoría específica antes de autorizar o modificar código.
 
 ---
 
 ### Workflow Oficial de Performance Engineering
 
 ```text
-P0 Auditoría Estática
+P0 Auditoría Estática [COMPLETADA]
        ↓
-P1 Baseline Cuantitativa (:benchmark, TTID, TTFD, Frames)
+P1 Baseline Cuantitativa (:benchmark, TTID, TTFD, Frames) [COMPLETADA]
        ↓
 P2-01 Optimización Search (DrawerListItems / AppDrawerScreen) [COMPLETADA]
        ↓
-P2-02 Cold Start / loadState() (Auditoría Arquitectónica) [PRÓXIMA FASE]
+P2-02 Diagnóstico Integral Cold Start (A: loadState, B: Timeline Map, C: Composition Trace) [COMPLETADA]
        ↓
-P2-03 saveState() (Mutaciones y persistencia no síncrona)
+P2-03 EXP-PAGER-ZERO-PRELOAD (HorizontalPager beyondViewportPageCount = 0) [COMPLETADA]
        ↓
-P2-04 Compose Stability (Profiling de recomposiciones en LauncherState)
+P2-04 Siguiente Hotspot de Composición / Layout [AUDITORÍA PENDIENTE]
        ↓
-Auditoría Profunda de Memoria / CPU / GPU
+P2-05 saveState() (Mutaciones y persistencia no síncrona)
        ↓
-Metodología Multigama (Gama baja, media y alta)
-       ↓
-Adaptive Quality / Resource Budget
-       ↓
-Baseline Profiles & Startup Profiles
+P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 ```
 
 * **Regla Inquebrantable:**
   ```text
   MEDIR  →  LOCALIZAR  →  CAMBIAR (QUIRÚRGICO)  →  MEDIR OTRA VEZ
   ```
+  *Exactamente un experimento por cambio. Prohibido acumular optimizaciones.*
 
 ---
 
 ## 7. Próxima Acción Oficial
 
-* **NEXT:** `Performance Engineering — Fase P2-02: Auditoría Arquitectónica y Diseño de Cold Start (LauncherViewModel.loadState())`.
-* **Responsable:** Claude realizará una auditoría profunda de arquitectura y diseño antes de cualquier modificación de código.
+* **NEXT:** `Performance Engineering — Fase P2-04: Auditoría Técnica del Siguiente Hotspot de Composición / Layout`.
+* **Responsable:** Claude realizará una auditoría específica antes de autorizar cualquier modificación de código.
 * **Restricción Estricta:** Cero modificaciones de código en producción durante la fase de auditoría.
 
 ---
@@ -378,7 +427,7 @@ Baseline Profiles & Startup Profiles
 
 ## 11. Tareas Pendientes y Hoja de Ruta
 
-1. **Performance Engineering — Fase P2-02 (Cold Start / loadState):** Auditoría arquitectónica y diseño para desacoplar el I/O síncrono y llamadas IPC de widgets en el arranque inicial.
+1. **Performance Engineering — Fase P2-04 (Composición / Layout):** Auditoría técnica y selección del próximo experimento A/B de optimización sobre los hotspots de composición restantes.
 2. **Estabilización de Video Resume (Independiente):** Diagnóstico y corrección de la re-vinculación de `TextureView` en `VideoWallpaperManager` al regresar de apps pesadas.
 3. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
 4. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.

@@ -1,13 +1,13 @@
 <?xml version='1.0' encoding='UTF-8' ?>
-<testsuites tests="0" failures="0" errors="0" skipped="0" time="0.015" timestamp="2026-09-20T05:31:56" hostname="localhost">
-  <system-err>ErrorName: INSTALL_FAILED_USER_RESTRICTED
+<testsuites tests="0" failures="0" errors="0" skipped="0" time="0.015" timestamp="2026-09-20T06:53:14" hostname="localhost">
+  <system-err>ErrorName: INSTALL_FAILED_VERIFICATION_FAILURE
 NameSpace: DdmlibAndroidDeviceController
 ErrorCode: 1
 ErrorType: TEST
 Message: Failed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk]
 Failed to install split APK(s): [C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk]
-Failed to commit install session 357524622 with command package install-commit 357524622. Error: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
-com.android.ddmlib.InstallException: Failed to commit install session 357524622 with command package install-commit 357524622. Error: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+Failed to commit install session 1007220573 with command package install-commit 1007220573. Error: INSTALL_FAILED_VERIFICATION_FAILURE: Install canceled by user
+com.android.ddmlib.InstallException: Failed to commit install session 1007220573 with command package install-commit 1007220573. Error: INSTALL_FAILED_VERIFICATION_FAILURE: Install canceled by user
 	at com.android.ddmlib.SplitApkInstallerBase.installCommit(SplitApkInstallerBase.java:171)
 	at com.android.ddmlib.SplitApkInstaller.install(SplitApkInstaller.java:85)
 	at com.android.ddmlib.IDeviceSharedImpl.installPackages(IDeviceSharedImpl.java:395)

@@ -1,12 +1,17 @@
 package com.daybreak.animelauncher.benchmark
 
 import android.util.Log
+import androidx.benchmark.macro.CompilationMode
+import androidx.benchmark.macro.StartupMode
+import androidx.benchmark.macro.StartupTimingMetric
+import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -17,11 +22,32 @@ private const val TARGET_PACKAGE = "com.daybreak.animelauncher"
 @RunWith(AndroidJUnit4::class)
 class StartupBenchmark {
 
+    @get:Rule
+    val benchmarkRule = MacrobenchmarkRule()
+
     private lateinit var device: UiDevice
 
     @Before
     fun setUp() {
         device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    }
+
+    @Test
+    fun startupColdMacrobenchmark() = benchmarkRule.measureRepeated(
+        packageName = TARGET_PACKAGE,
+        metrics = listOf(StartupTimingMetric()),
+        compilationMode = CompilationMode.DEFAULT,
+        iterations = 3,
+        setupBlock = {
+            device.executeShellCommand("am start -a android.settings.SETTINGS")
+            device.executeShellCommand("am force-stop $TARGET_PACKAGE")
+            Thread.sleep(500)
+        }
+    ) {
+        startActivityAndWait(android.content.Intent().apply {
+            setClassName(TARGET_PACKAGE, "$TARGET_PACKAGE.MainActivity")
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        })
     }
 
     @Test

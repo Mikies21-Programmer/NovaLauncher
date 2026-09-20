@@ -1,7 +1,7 @@
 EXECUTING: C:\Users\migue\AppData\Local\Android\Sdk\build-tools\36.0.0\aapt.exe dump badging C:\Users\migue\AndroidStudioProjects\AnimeLauncher\benchmark\build\outputs\apk\benchmark\benchmark-benchmark.apk
 CURRENT_WORKING_DIRECTORY: C:\Users\migue\AndroidStudioProjects\AnimeLauncher
-START_TIME: 2026-09-19 23:31:55.178
-START_TIME-NANOS: 2026-09-19 23:31:55.178780600
+START_TIME: 2026-09-20 00:53:13.104
+START_TIME-NANOS: 2026-09-20 00:53:13.104445700
 ENVIRONMENT:
 
 *****************************************
@@ -29,7 +29,7 @@ locales: '--_--' 'af' 'am' 'ar' 'as' 'az' 'be' 'bg' 'bn' 'bs' 'ca' 'cs' 'da' 'de
 densities: '160' '240' '320' '65535'
 native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'
 ===================
-END_TIME: 2026-09-19 23:31:55.223
-END_TIME-NANOS: 2026-09-19 23:31:55.223170100
-DURATION: 44ms
+END_TIME: 2026-09-20 00:53:13.146
+END_TIME-NANOS: 2026-09-20 00:53:13.146798700
+DURATION: 42ms
 EXIT CODE: 0
