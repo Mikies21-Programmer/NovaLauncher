@@ -340,21 +340,8 @@ fun LauncherScreen(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            val isImage = try {
-                val type = context.contentResolver.getType(uri)
-                if (type != null) type.startsWith("image/")
-                else {
-                    val lower = uri.toString().lowercase()
-                    lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".gif") || lower.endsWith(".bmp")
-                }
-            } catch (_: Exception) { false }
-
-            if (isImage) {
-                themeProposalInitialConfig = state.styleConfig
-                pendingThemeProposalUri = uri
-            } else {
-                viewModel.updateBackgroundUri(longPressedPageIndex, uri.toString())
-            }
+            themeProposalInitialConfig = state.styleConfig
+            pendingThemeProposalUri = uri
         }
     }
 

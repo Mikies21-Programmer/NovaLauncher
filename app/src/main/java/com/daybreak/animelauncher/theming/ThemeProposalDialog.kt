@@ -68,18 +68,67 @@ fun ThemeProposalDialog(
     var proposals by remember { mutableStateOf<List<ThemeProposal>>(emptyList()) }
     var selectedIndex by remember { mutableIntStateOf(0) }
     var isVisible by remember { mutableStateOf(false) }
+    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            previewBitmap?.let {
+                if (!it.isRecycled) it.recycle()
+            }
+        }
+    }
 
     LaunchedEffect(imageUri) {
         withContext(Dispatchers.IO) {
-            val bitmap = loadSampledBitmap(context, imageUri, targetSize = 250)
-            val palette = WallpaperAnalyzer.analyze(bitmap, Dispatchers.Default)
-            val generated = ThemeProposalFlowHandler.resolveProposals(palette)
-            withContext(Dispatchers.Main) {
-                proposals = generated
-                isAnalyzing = false
-                if (generated.isNotEmpty()) {
-                    selectedIndex = 0
-                    onPreviewTransient(generated[0])
+            try {
+                val isVideo = isVideoUri(context, imageUri)
+                val palette: ThemePalette
+                var selectedPreview: Bitmap? = null
+
+                if (isVideo) {
+                    val frames = VideoFrameExtractor.extractFrames(context, imageUri)
+                    val framePalettes = mutableListOf<ThemePalette>()
+
+                    if (frames.isNotEmpty()) {
+                        // Usar el frame central (50%) como miniatura del preview superior
+                        selectedPreview = frames[frames.size / 2]
+
+                        for (frame in frames) {
+                            val p = WallpaperAnalyzer.analyze(frame, Dispatchers.Default)
+                            framePalettes.add(p)
+                            // Reciclar los frames no utilizados como preview para economizar RAM de inmediato
+                            if (frame != selectedPreview && !frame.isRecycled) {
+                                frame.recycle()
+                            }
+                        }
+                    }
+
+                    palette = ThemePaletteAggregator.aggregate(framePalettes)
+                } else {
+                    val bitmap = loadSampledBitmap(context, imageUri, targetSize = 250)
+                    palette = WallpaperAnalyzer.analyze(bitmap, Dispatchers.Default)
+                }
+
+                val generated = ThemeProposalFlowHandler.resolveProposals(palette)
+                withContext(Dispatchers.Main) {
+                    previewBitmap = selectedPreview
+                    proposals = generated
+                    isAnalyzing = false
+                    if (generated.isNotEmpty()) {
+                        selectedIndex = 0
+                        onPreviewTransient(generated[0])
+                    }
+                }
+            } catch (_: Throwable) {
+                // Fallback seguro ante cualquier fallo: no bloquear jamás el diálogo ni la selección
+                val fallback = ThemeProposalFlowHandler.resolveProposals(ThemePalette.DEFAULT)
+                withContext(Dispatchers.Main) {
+                    proposals = fallback
+                    isAnalyzing = false
+                    if (fallback.isNotEmpty()) {
+                        selectedIndex = 0
+                        onPreviewTransient(fallback[0])
+                    }
                 }
             }
         }
@@ -177,7 +226,7 @@ fun ThemeProposalDialog(
                             ) {
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
-                                        .data(imageUri)
+                                        .data(previewBitmap ?: imageUri)
                                         .crossfade(true)
                                         .build(),
                                     contentDescription = "Wallpaper Preview",
@@ -473,5 +522,20 @@ private fun loadSampledBitmap(context: Context, uri: Uri, targetSize: Int): Bitm
         }
     } catch (_: Exception) {
         null
+    }
+}
+
+internal fun isVideoUri(context: Context, uri: Uri): Boolean {
+    return try {
+        val type = context.contentResolver.getType(uri)
+        if (type != null) {
+            type.startsWith("video/")
+        } else {
+            val lower = uri.toString().lowercase()
+            lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".webm") ||
+            lower.endsWith(".3gp") || lower.endsWith(".mov") || lower.endsWith(".ts")
+        }
+    } catch (_: Exception) {
+        false
     }
 }
