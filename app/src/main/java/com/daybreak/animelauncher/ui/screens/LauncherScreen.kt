@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import com.daybreak.animelauncher.theming.ThemeProposalDialog
+import com.daybreak.animelauncher.theming.ThemeProposalFlowHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -55,6 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.daybreak.animelauncher.LauncherViewModel
+import com.daybreak.animelauncher.theming.LocalLauncherThemeTokens
+import com.daybreak.animelauncher.theming.accent
+import com.daybreak.animelauncher.theming.border
+import com.daybreak.animelauncher.theming.surface
 import com.daybreak.animelauncher.ui.components.AccessibilityDisclosureDialog
 import com.daybreak.animelauncher.ui.components.VideoWallpaperManager
 import androidx.lifecycle.Lifecycle
@@ -68,9 +74,10 @@ import kotlin.math.absoluteValue
 @Composable
 fun LauncherScreen(
     viewModel: LauncherViewModel,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: (openAdvanced: Boolean) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    val themeTokens = LocalLauncherThemeTokens.current
     val context = LocalContext.current
     
     val widgetHostManager = viewModel.widgetHostManager
@@ -317,6 +324,9 @@ fun LauncherScreen(
         }
     }
 
+    var pendingThemeProposalUri by remember { mutableStateOf<Uri?>(null) }
+    var themeProposalInitialConfig by remember { mutableStateOf(state.styleConfig) }
+
     // Launcher for Gallery Wallpaper picker
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -330,7 +340,21 @@ fun LauncherScreen(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            viewModel.updateBackgroundUri(longPressedPageIndex, uri.toString())
+            val isImage = try {
+                val type = context.contentResolver.getType(uri)
+                if (type != null) type.startsWith("image/")
+                else {
+                    val lower = uri.toString().lowercase()
+                    lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".gif") || lower.endsWith(".bmp")
+                }
+            } catch (_: Exception) { false }
+
+            if (isImage) {
+                themeProposalInitialConfig = state.styleConfig
+                pendingThemeProposalUri = uri
+            } else {
+                viewModel.updateBackgroundUri(longPressedPageIndex, uri.toString())
+            }
         }
     }
 
@@ -489,7 +513,7 @@ fun LauncherScreen(
                                             hasTriggered = true
                                             change1.consume()
                                             change2.consume()
-                                            onNavigateToSettings()
+                                            onNavigateToSettings(false)
                                         }
                                     }
                                 }
@@ -529,7 +553,7 @@ fun LauncherScreen(
         if (page % 2 == 0) {
             ViewOne(
                 config = viewConfig,
-                onSettingsClick = onNavigateToSettings,
+                onSettingsClick = { onNavigateToSettings(false) },
                 onLongPress = onLongPressAction,
                 onDoubleTap = onDoubleTapAction,
                 appWidgetHost = appWidgetHost,
@@ -545,7 +569,7 @@ fun LauncherScreen(
         } else {
             ViewTwo(
                 config = viewConfig,
-                onSettingsClick = onNavigateToSettings,
+                onSettingsClick = { onNavigateToSettings(false) },
                 onLongPress = onLongPressAction,
                 onDoubleTap = onDoubleTapAction,
                 appWidgetHost = appWidgetHost,
@@ -573,8 +597,8 @@ fun LauncherScreen(
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF08080C).copy(alpha = 0.95f),
-                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.6f)),
+                color = themeTokens.surface.copy(alpha = 0.95f),
+                border = BorderStroke(1.dp, themeTokens.border.copy(alpha = 0.6f)),
                 shadowElevation = 8.dp
             ) {
                 Row(
@@ -584,14 +608,14 @@ fun LauncherScreen(
                 ) {
                     Text(
                         text = if (state.language == "es") "Modo Edición de Widgets" else "Widget Edit Mode",
-                        color = Color(0xFF00F0FF),
+                        color = themeTokens.accent,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Button(
                         onClick = { isWidgetEditMode = false },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF00F0FF),
+                            containerColor = themeTokens.accent,
                             contentColor = Color.Black
                         ),
                         shape = RoundedCornerShape(10.dp),
@@ -611,8 +635,8 @@ fun LauncherScreen(
         Dialog(onDismissRequest = { navState = LauncherNavState.Home }) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = Color(0xFF08080C).copy(alpha = 0.96f),
-                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.4f)),
+                color = themeTokens.surface.copy(alpha = 0.96f),
+                border = BorderStroke(1.dp, themeTokens.border.copy(alpha = 0.4f)),
                 tonalElevation = 8.dp,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -626,11 +650,11 @@ fun LauncherScreen(
                     Text(
                         text = if (isEs) "Opciones de Pantalla ${longPressedPageIndex + 1}" else "Screen ${longPressedPageIndex + 1} Options",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF00F0FF), // Cian Neón fosforecente único
+                        color = themeTokens.accent,
                         fontWeight = FontWeight.Normal
                     )
 
-                    HorizontalDivider(color = Color(0xFF00F0FF).copy(alpha = 0.3f))
+                    HorizontalDivider(color = themeTokens.border.copy(alpha = 0.3f))
 
                     // 1. Fondos
                     Row(
@@ -645,7 +669,7 @@ fun LauncherScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(Icons.Outlined.Image, contentDescription = "Fondos", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Icon(Icons.Outlined.Image, contentDescription = "Fondos", tint = themeTokens.accent, modifier = Modifier.size(28.dp))
                         Column {
                             Text(if (isEs) "Fondos de pantalla" else "Wallpapers & Videos", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
                             Text(if (isEs) "Elige video o foto de tu galería" else "Choose video or photo from gallery", color = Color.LightGray, fontSize = 12.sp)
@@ -665,7 +689,7 @@ fun LauncherScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(Icons.Outlined.Apps, contentDescription = "Widgets", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Icon(Icons.Outlined.Apps, contentDescription = "Widgets", tint = themeTokens.accent, modifier = Modifier.size(28.dp))
                         Column {
                             Text(if (isEs) "Widgets del sistema" else "System Widgets", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
                             Text(if (isEs) "WhatsApp, Spotify, Fotos, Google Maps..." else "WhatsApp, Spotify, Photos, Google Maps...", color = Color.LightGray, fontSize = 12.sp)
@@ -686,7 +710,7 @@ fun LauncherScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Editar Widgets", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Icon(Icons.Outlined.Edit, contentDescription = "Editar Widgets", tint = themeTokens.accent, modifier = Modifier.size(28.dp))
                         Column {
                             Text(if (isEs) "Editar widgets" else "Edit widgets", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
                             Text(if (isEs) "Eliminar widgets colocados" else "Manage or remove placed widgets", color = Color.LightGray, fontSize = 12.sp)
@@ -701,13 +725,13 @@ fun LauncherScreen(
                             .background(Color.White.copy(alpha = 0.08f))
                             .clickable {
                                 navState = LauncherNavState.Home
-                                onNavigateToSettings()
+                                onNavigateToSettings(false)
                             }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Ajustes", tint = Color(0xFF00F0FF), modifier = Modifier.size(28.dp))
+                        Icon(Icons.Outlined.Settings, contentDescription = "Ajustes", tint = themeTokens.accent, modifier = Modifier.size(28.dp))
                         Column {
                             Text(if (isEs) "Configuración de pantalla" else "Screen Settings", color = Color.White, fontWeight = FontWeight.Normal, fontSize = 16.sp)
                             Text(if (isEs) "Administrar pantallas y accesos rápidos" else "Manage screens and shortcuts", color = Color.LightGray, fontSize = 12.sp)
@@ -718,7 +742,7 @@ fun LauncherScreen(
                         onClick = { navState = LauncherNavState.Home },
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text(if (isEs) "Cancelar" else "Cancel", color = Color(0xFF00F0FF), fontWeight = FontWeight.Medium)
+                        Text(if (isEs) "Cancelar" else "Cancel", color = themeTokens.accent, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -731,8 +755,8 @@ fun LauncherScreen(
         Dialog(onDismissRequest = { navState = LauncherNavState.Home }) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = Color(0xFF08080C).copy(alpha = 0.96f),
-                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.4f)),
+                color = themeTokens.surface.copy(alpha = 0.96f),
+                border = BorderStroke(1.dp, themeTokens.border.copy(alpha = 0.4f)),
                 tonalElevation = 8.dp,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -763,7 +787,7 @@ fun LauncherScreen(
                     Text(
                         text = if (isEs) "Selecciona un Widget" else "Select a Widget",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF00F0FF),
+                        color = themeTokens.accent,
                         fontWeight = FontWeight.Normal
                     )
 
@@ -776,9 +800,9 @@ fun LauncherScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF00F0FF),
+                            focusedBorderColor = themeTokens.border,
                             unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                            cursorColor = Color(0xFF00F0FF)
+                            cursorColor = themeTokens.accent
                         ),
                         singleLine = true
                     )
@@ -891,7 +915,7 @@ fun LauncherScreen(
                                         Icon(
                                             imageVector = Icons.Outlined.Widgets,
                                             contentDescription = null,
-                                            tint = Color(0xFF00F0FF),
+                                            tint = themeTokens.accent,
                                             modifier = Modifier.size(28.dp)
                                         )
                                     }
@@ -907,12 +931,12 @@ fun LauncherScreen(
                                 // Tamaño en celdas (ej. 2 × 1, 4 × 2)
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF00F0FF).copy(alpha = 0.15f),
-                                    border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.35f))
+                                    color = themeTokens.accent.copy(alpha = 0.15f),
+                                    border = BorderStroke(1.dp, themeTokens.border.copy(alpha = 0.35f))
                                 ) {
                                     Text(
                                         text = cellSpanText,
-                                        color = Color(0xFF00F0FF),
+                                        color = themeTokens.accent,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -925,7 +949,7 @@ fun LauncherScreen(
                     Button(
                         onClick = { navState = LauncherNavState.Home },
                         modifier = Modifier.align(Alignment.End),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF), contentColor = Color.Black),
+                        colors = ButtonDefaults.buttonColors(containerColor = themeTokens.accent, contentColor = Color.Black),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(if (isEs) "Cancelar" else "Cancel", fontWeight = FontWeight.Medium)
@@ -953,6 +977,39 @@ fun LauncherScreen(
                 pickMediaLauncher.launch(arrayOf("image/*", "video/*"))
             },
             onBack = { navState = LauncherNavState.Home }
+        )
+    }
+
+    if (pendingThemeProposalUri != null) {
+        val uri = pendingThemeProposalUri!!
+        val targetIdx = longPressedPageIndex
+        ThemeProposalDialog(
+            imageUri = uri,
+            isEs = state.language == "es",
+            onApply = { proposal ->
+                viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                viewModel.persistStyleConfig(ThemeProposalFlowHandler.handleApply(proposal, themeProposalInitialConfig))
+                pendingThemeProposalUri = null
+            },
+            onCustomize = { proposal ->
+                viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.handleCustomize(proposal, themeProposalInitialConfig))
+                pendingThemeProposalUri = null
+                onNavigateToSettings(true)
+            },
+            onDiscard = {
+                viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.handleDiscard(themeProposalInitialConfig))
+                pendingThemeProposalUri = null
+            },
+            onBack = {
+                viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.handleBack(themeProposalInitialConfig))
+                pendingThemeProposalUri = null
+            },
+            onPreviewTransient = { proposal ->
+                viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.proposalToAdvancedStyleConfig(proposal, themeProposalInitialConfig))
+            }
         )
     }
 

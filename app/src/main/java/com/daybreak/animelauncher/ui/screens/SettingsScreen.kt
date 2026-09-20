@@ -33,6 +33,11 @@ import androidx.compose.ui.window.Dialog
 import com.daybreak.animelauncher.AdvancedStyleConfig
 import com.daybreak.animelauncher.AppShortcut
 import com.daybreak.animelauncher.LauncherViewModel
+import com.daybreak.animelauncher.theming.LocalLauncherThemeTokens
+import com.daybreak.animelauncher.theming.ThemeProposalDialog
+import com.daybreak.animelauncher.theming.ThemeProposalFlowHandler
+import com.daybreak.animelauncher.theming.border
+import com.daybreak.animelauncher.theming.surface
 import com.daybreak.animelauncher.ui.components.AccessibilityDisclosureDialog
 import com.daybreak.animelauncher.ui.components.DynamicBackground
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
@@ -49,6 +54,7 @@ val LocalAdvancedStyleConfig = compositionLocalOf { AdvancedStyleConfig() }
 @Composable
 fun SettingsScreen(
     viewModel: LauncherViewModel,
+    initialShowAdvanced: Boolean = false,
     onBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
@@ -72,6 +78,9 @@ fun SettingsScreen(
         installedApps = viewModel.getInstalledApps(context)
     }
 
+    var pendingThemeProposalUri by remember { mutableStateOf<Uri?>(null) }
+    var themeProposalInitialConfig by remember { mutableStateOf(state.styleConfig) }
+
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -84,8 +93,22 @@ fun SettingsScreen(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            selectedViewIndexForMedia?.let { idx ->
-                viewModel.updateBackgroundUri(idx, uri.toString())
+            val isImage = try {
+                val type = context.contentResolver.getType(uri)
+                if (type != null) type.startsWith("image/")
+                else {
+                    val lower = uri.toString().lowercase()
+                    lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".gif") || lower.endsWith(".bmp")
+                }
+            } catch (_: Exception) { false }
+
+            if (isImage) {
+                themeProposalInitialConfig = state.styleConfig
+                pendingThemeProposalUri = uri
+            } else {
+                selectedViewIndexForMedia?.let { idx ->
+                    viewModel.updateBackgroundUri(idx, uri.toString())
+                }
             }
         }
     }
@@ -122,11 +145,15 @@ fun SettingsScreen(
         state.viewConfigs.firstOrNull()?.backgroundUri ?: ""
     }
 
-    var showAdvancedSettings by remember { mutableStateOf(false) }
+    var showAdvancedSettings by remember(initialShowAdvanced) { mutableStateOf(initialShowAdvanced) }
     CompositionLocalProvider(LocalAdvancedStyleConfig provides state.styleConfig) {
         if (showAdvancedSettings) {
             androidx.activity.compose.BackHandler(enabled = true) {
-                showAdvancedSettings = false
+                if (initialShowAdvanced) {
+                    onBack()
+                } else {
+                    showAdvancedSettings = false
+                }
             }
             AdvancedSettingsScreen(
                 styleConfig = state.styleConfig,
@@ -135,7 +162,13 @@ fun SettingsScreen(
                 onUpdateTransient = { viewModel.updateStyleConfigTransient(it) },
                 onPersist = { viewModel.persistStyleConfig(it) },
                 onReset = { viewModel.resetStyleConfig() },
-                onBack = { showAdvancedSettings = false }
+                onBack = {
+                    if (initialShowAdvanced) {
+                        onBack()
+                    } else {
+                        showAdvancedSettings = false
+                    }
+                }
             )
         } else if (showBackgroundSelection && selectedViewIndexForMedia != null) {
             androidx.activity.compose.BackHandler(enabled = true) {
@@ -159,6 +192,38 @@ fun SettingsScreen(
                 onBack = { showBackgroundSelection = false }
             )
         } else {
+            if (pendingThemeProposalUri != null && selectedViewIndexForMedia != null) {
+                val uri = pendingThemeProposalUri!!
+                val targetIdx = selectedViewIndexForMedia!!
+                ThemeProposalDialog(
+                    imageUri = uri,
+                    isEs = isEs,
+                    onApply = { proposal ->
+                        viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                        viewModel.persistStyleConfig(ThemeProposalFlowHandler.handleApply(proposal, themeProposalInitialConfig))
+                        pendingThemeProposalUri = null
+                    },
+                    onCustomize = { proposal ->
+                        viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                        viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.handleCustomize(proposal, themeProposalInitialConfig))
+                        pendingThemeProposalUri = null
+                        showAdvancedSettings = true
+                    },
+                    onDiscard = {
+                        viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                        viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.handleDiscard(themeProposalInitialConfig))
+                        pendingThemeProposalUri = null
+                    },
+                    onBack = {
+                        viewModel.updateBackgroundUri(targetIdx, uri.toString())
+                        viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.handleBack(themeProposalInitialConfig))
+                        pendingThemeProposalUri = null
+                    },
+                    onPreviewTransient = { proposal ->
+                        viewModel.updateStyleConfigTransient(ThemeProposalFlowHandler.proposalToAdvancedStyleConfig(proposal, themeProposalInitialConfig))
+                    }
+                )
+            }
             Box(modifier = Modifier.fillMaxSize()) {
         // 1. Fondo Dinámico de la Vista Principal (Pantalla 1)
         DynamicBackground(
@@ -973,8 +1038,8 @@ fun SettingsScreen(
 fun GlassCard(
     modifier: Modifier = Modifier,
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(LocalAdvancedStyleConfig.current.cornerRadius.dp),
-    backgroundColor: Color = Color(0xFF08080C).copy(alpha = LocalAdvancedStyleConfig.current.panelTransparency),
-    borderColor: Color = Color(0xFF00F0FF).copy(alpha = LocalAdvancedStyleConfig.current.glassBorderAlpha),
+    backgroundColor: Color = LocalLauncherThemeTokens.current.surface.copy(alpha = LocalAdvancedStyleConfig.current.panelTransparency),
+    borderColor: Color = LocalLauncherThemeTokens.current.border.copy(alpha = LocalAdvancedStyleConfig.current.glassBorderAlpha),
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(

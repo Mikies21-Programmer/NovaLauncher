@@ -1,7 +1,7 @@
 # Estado Persistente del Proyecto — NovaLauncher (Agent State)
 
-> **Documento de sincronización y continuidad operativa entre sesiones y agentes.**  
-> *Última actualización: 17 de septiembre de 2026.*  
+> **Documento de sincronización y continuidad operativa entre sesiones y agentes.**<br>
+> *Última actualización: 19 de septiembre de 2026.*<br>
 > *Regla de seguridad: CERO secretos, contraseñas ni claves privadas en este documento.*
 
 ---
@@ -62,6 +62,36 @@
       * Clasificación coherente: `isDark = averageLuminance < 0.5f`.
     * **Tests Unitarios:**
       * Suite `WallpaperAnalyzerTest` con 11 pruebas unitarias cubriendo: imágenes coloridas, oscuras, claras, monocromáticas, ausencia de vibrant swatch, ausencia de muted swatch, resoluciones diminutas (2x2), resoluciones grandes (800x1200), bitmaps nulos/reciclados, consistencia determinista y ejecución asíncrona suspendida. 100% PASS.
+    * **ADAPTIVE WALLPAPER THEMING — FASE 2B: RUNTIME THEME TOKEN LAYER (IMPLEMENTADA / PENDIENTE DE VALIDACIÓN FÍSICA):**
+      * **Modelo Inmutable Puro:** Creado `LauncherThemeTokens` (`accentColor`, `surfaceColor`, `textPrimaryColor`, `textSecondaryColor`, `borderColor`) con enteros `@ColorInt Int` y parser hexadecimal propio libre de Compose y dependencias Android.
+      * **Defaults Compatibles:** Paridad visual 100% con la estética cyberpunk original (`#00F0FF` para acento/borde, `#08080C` para superficies oscuras, `#FFFFFF` para texto principal, `#CCCCCC` para secundario).
+      * **CompositionLocal Global & Root Provider:** Creado `LocalLauncherThemeTokens` (con extensiones Compose `.accent`, `.surface`, `.textPrimary`, `.textSecondary`, `.border`) provisto de forma reactiva en el root real de composición (`MainActivity.kt` envolviendo a `NavHost`).
+      * **Archivos Visuales Conectados Quirúrgicamente:**
+        * `AppDrawerScreen.kt`: Sustitución de colores cyan y surface hardcoded en buscador, category pills, encabezados de letra, diálogos modales y AlphabetIndexRail.
+        * `LauncherScreen.kt`: Sustitución de colores en banner de edición de widgets, menú contextual de pulsación larga y selector integrado de widgets.
+        * `SettingsScreen.kt`: Conexión de `GlassCard` a `LocalLauncherThemeTokens.current.surface` y `.border` preservando intacto `LocalAdvancedStyleConfig`, sliders, cornerRadius y alphas configurables.
+        * `AdvancedSettingsScreen.kt`: Inyección sincronizada de `LocalLauncherThemeTokens` en el preview en vivo.
+      * **Componentes Protegidos Intactos:** No se modificaron `ShortcutIcon`, `IconCache`, `VideoWallpaperManager`, `VideoBackground`, `WidgetHostManager`, `NativeWidgetView`, `LauncherAccessibilityService`, `NotificationMonitorService`, `LauncherNavState`, `ViewOne`, `ViewTwo`, ni `DrawerListItems`.
+      * **Aislamiento de Video Preservado:** Cero dependencias con ExoPlayer o reproducción de video.
+      * **Validación de Tests Unitarios:** Suite `LauncherThemeTokensTest` con 4 tests unitarios puros (defaults precisos, conversión determinista desde `AdvancedStyleConfig`, robustez contra entradas inválidas y verificación reflexiva de cero dependencias con Compose) ejecutados y aprobados con 100% PASS. Compilación limpia (`assembleDebug` y `lintDebug` PASS).
+    * **ADAPTIVE WALLPAPER THEMING — FASE 2C: THEME PROPOSAL GENERATOR (IMPLEMENTADA / PENDIENTE DE VALIDACIÓN):**
+      * **Objetivo Exclusivo:** Implementación pura de la canalización `ThemePalette` → `ThemeProposalGenerator` → `List<ThemeProposal>`. No incluye UI, selector, preview, persistencia de `AppliedTheme` ni integración con wallpapers de video.
+      * **Modelo Inmutable y Temporal:** Creado `ThemeProposal` (`id`, `palette`, `proposedTokens`, `isDark`, `label`, `order`) como estructura transitoria en memoria libre de persistencia.
+      * **Generador Determinista y Puro:** Creado `ThemeProposalGenerator` sintetizando entre 1 y 4 propuestas semánticas (`Dominante`, `Vibrante`, `Equilibrado`). Motor matemático puro de luminancia relativa y contraste WCAG 2.1 en Kotlin estándar sin dependencias de Compose ni APIs de UI de Android.
+      * **Garantía Estricta de Contraste:** Validación y ajuste sistemático de luminancia por HSL para asegurar ratios mínimos WCAG 2.1: $\ge 4.5:1$ en `textPrimaryColor`, $\ge 3.0:1$ en `textSecondaryColor` y `accentColor`, $\ge 1.5:1$ en `borderColor`.
+      * **Deduplicación Perceptual y Fallback:** Comparación Manhattan RGB entre tokens clave; reducción automática y determinista para paletas monocromáticas (1 propuesta) y fallback garantizado para `ThemePalette.DEFAULT` y valores extremos sin lanzar excepciones.
+      * **Tests Unitarios Exhaustivos:** Suite `ThemeProposalGeneratorTest` con 12 pruebas unitarias aprobadas al 100% (paletas coloridas, oscuras, claras, monocromáticas, swatches faltantes, determinismo, deduplicación, contraste, ARGB opaco de 32 bits y reflexión de aislamiento de Compose).
+      * **Sanity Check Visual Aprobado:** Evaluación de 5 paletas representativas confirmando diferenciación perceptual, contraste WCAG AAA/AA, ausencia de duplicados y reducción determinista en paletas monocromáticas.
+    * **ADAPTIVE WALLPAPER THEMING — FASE 2D: CORRECCIÓN POST-VALIDACIÓN FÍSICA (IMPLEMENTADA Y COMPILADA):**
+      * **Resultados Validación Física en POCO X6 5G:** Flujo normal PASS, Aplicar PASS, Descartar PASS, Back PASS, Performance PASS. Defectos identificados: 1) Personalizar abría menú general en vez de pantalla avanzada; 2) Contraste deficiente de category pills sobre wallpapers claros/blancos.
+      * **Corrección Defecto 1 (Personalizar → AdvancedSettingsScreen):**
+        * Causa identificada: Al navegar a `"settings"` desde el callback `onCustomize` en `ThemeProposalDialog`, `SettingsScreen` inicializaba `var showAdvancedSettings = false`, requiriendo interacción manual adicional.
+        * Solución quirúrgica: `SettingsScreen` ahora recibe `initialShowAdvanced: Boolean = false`, recordando su estado si proviene de personalización directa. `MainActivity` gestiona la bandera `openAdvancedInSettings` y la restablece al salir. `AdvancedSettingsScreen` inicia con los valores de la propuesta seleccionada (`styleConfig` transitorio) y permite modificar/persistir o volver al launcher con el estado limpio. Cero modificaciones a `LauncherNavState` o al grafo de rutas `NavHost`.
+      * **Corrección Defecto 2 (Contraste Semántico de Category Pills):**
+        * Causa identificada: Presencia de colores estáticos `Color.White` y `Color.White.copy(alpha = 0.50f)` en `AppDrawerScreen.kt` para texto y selector de pestañas, ilegibles sobre wallpapers de luminancia alta.
+        * Solución quirúrgica: Eliminación de blancos hardcodeados. Reemplazados con tokens semánticos `themeTokens.accent` (pestaña/texto seleccionado) y `themeTokens.textSecondary` (no seleccionado), y borde `themeTokens.border.copy(alpha = 0.15f)`. En tema oscuro conserva estética original (texto claro/secondary y accent); en tema claro produce texto oscuro de alto contraste y legibilidad. Sin alterar dimensiones, padding, gestos, animaciones ni estructura de `AppDrawerScreen`.
+      * **Tests Unitarios Agregados:** Tests 11 y 12 en `ThemeProposalFlowHandlerTest` validando que "Personalizar" entrega la propuesta como base a `AdvancedSettings` y que los category pills respetan tokens semánticos garantizando contraste WCAG en temas oscuros y claros (12/12 PASS).
+      * **Componentes Protegidos Intactos:** Sin cambios en `ShortcutIcon`, `IconCache`, `VideoWallpaperManager`, `VideoBackground`, `WidgetHostManager`, `NativeWidgetView`, `ViewOne`, `ViewTwo`, `LauncherAccessibilityService`, `NotificationMonitorService`, `LauncherNavState`, `AlphabetIndexRail`, Motion System ni lógica de scroll/categorías. Cero commits realizados.
 
 ---
 

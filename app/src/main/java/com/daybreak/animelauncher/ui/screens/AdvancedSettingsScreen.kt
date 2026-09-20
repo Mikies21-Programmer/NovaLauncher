@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daybreak.animelauncher.AdvancedStyleConfig
+import com.daybreak.animelauncher.theming.LauncherThemeTokens
+import com.daybreak.animelauncher.theming.LocalLauncherThemeTokens
 import com.daybreak.animelauncher.ui.components.DynamicBackground
 import com.daybreak.animelauncher.ui.theme.parseColorSafe
 
@@ -136,7 +138,14 @@ fun AdvancedSettingsScreen(
         onReset()
     }
 
-    CompositionLocalProvider(LocalAdvancedStyleConfig provides currentStyle) {
+    val currentTokens = androidx.compose.runtime.remember(currentStyle) {
+        LauncherThemeTokens.fromAdvancedStyleConfig(currentStyle)
+    }
+
+    CompositionLocalProvider(
+        LocalAdvancedStyleConfig provides currentStyle,
+        LocalLauncherThemeTokens provides currentTokens
+    ) {
         Box(modifier = Modifier.fillMaxSize()) {
         DynamicBackground(
             defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,

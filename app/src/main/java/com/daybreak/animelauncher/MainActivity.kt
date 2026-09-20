@@ -24,6 +24,8 @@ import com.daybreak.animelauncher.ui.components.VideoWallpaperManager
 import com.daybreak.animelauncher.ui.screens.LauncherScreen
 import com.daybreak.animelauncher.ui.screens.OnboardingScreen
 import com.daybreak.animelauncher.ui.screens.SettingsScreen
+import com.daybreak.animelauncher.theming.LauncherThemeTokens
+import com.daybreak.animelauncher.theming.LocalLauncherThemeTokens
 import com.daybreak.animelauncher.ui.theme.AnimeLauncherTheme
 
 class MainActivity : ComponentActivity() {
@@ -147,52 +149,65 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AnimeLauncherTheme {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    containerColor = androidx.compose.ui.graphics.Color.Black
-                ) { _ ->
-                    val navController = rememberNavController()
-                    LaunchedEffect(navController) {
-                        navControllerRef = navController
-                    }
-                    
-                    val state by viewModel.state.collectAsState()
-                    val startDest = if (state.hasCompletedOnboarding) "launcher" else "onboarding"
-                    
-                    LaunchedEffect(state.gesturesConfig.immersiveMode) {
-                        applySystemBarsPolicy(state.gesturesConfig.immersiveMode)
-                    }
-                    
-                    NavHost(
-                        navController = navController,
-                        startDestination = startDest,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        composable("onboarding") {
-                            OnboardingScreen(
-                                viewModel = viewModel,
-                                onFinish = {
-                                    navController.navigate("launcher") {
-                                        popUpTo("onboarding") { inclusive = true }
-                                    }
-                                }
-                            )
+                val state by viewModel.state.collectAsState()
+                val themeTokens = remember(state.styleConfig) {
+                    LauncherThemeTokens.fromAdvancedStyleConfig(state.styleConfig)
+                }
+
+                CompositionLocalProvider(LocalLauncherThemeTokens provides themeTokens) {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = androidx.compose.ui.graphics.Color.Black
+                    ) { _ ->
+                        val navController = rememberNavController()
+                        var openAdvancedInSettings by remember { mutableStateOf(false) }
+                        LaunchedEffect(navController) {
+                            navControllerRef = navController
                         }
-                        composable("launcher") {
-                            LauncherScreen(
-                                viewModel = viewModel,
-                                onNavigateToSettings = {
-                                    navController.navigate("settings") {
-                                        launchSingleTop = true
-                                    }
-                                }
-                            )
+
+                        val startDest = if (state.hasCompletedOnboarding) "launcher" else "onboarding"
+
+                        LaunchedEffect(state.gesturesConfig.immersiveMode) {
+                            applySystemBarsPolicy(state.gesturesConfig.immersiveMode)
                         }
-                        composable("settings") {
-                            SettingsScreen(
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
+
+                        NavHost(
+                            navController = navController,
+                            startDestination = startDest,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            composable("onboarding") {
+                                OnboardingScreen(
+                                    viewModel = viewModel,
+                                    onFinish = {
+                                        navController.navigate("launcher") {
+                                            popUpTo("onboarding") { inclusive = true }
+                                        }
+                                    }
+                                )
+                            }
+
+                            composable("launcher") {
+                                LauncherScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToSettings = { openAdvanced ->
+                                        openAdvancedInSettings = openAdvanced
+                                        navController.navigate("settings") {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                )
+                            }
+                            composable("settings") {
+                                SettingsScreen(
+                                    viewModel = viewModel,
+                                    initialShowAdvanced = openAdvancedInSettings,
+                                    onBack = {
+                                        openAdvancedInSettings = false
+                                        navController.popBackStack()
+                                    }
+                                )
+                            }
                         }
                     }
                 }

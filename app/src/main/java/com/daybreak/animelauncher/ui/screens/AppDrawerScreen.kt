@@ -54,6 +54,12 @@ import kotlinx.coroutines.launch
 import com.daybreak.animelauncher.AppShortcut
 import com.daybreak.animelauncher.DrawerCategory
 import com.daybreak.animelauncher.LauncherViewModel
+import com.daybreak.animelauncher.theming.LocalLauncherThemeTokens
+import com.daybreak.animelauncher.theming.accent
+import com.daybreak.animelauncher.theming.border
+import com.daybreak.animelauncher.theming.surface
+import com.daybreak.animelauncher.theming.textPrimary
+import com.daybreak.animelauncher.theming.textSecondary
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
 import com.daybreak.animelauncher.ui.theme.parseColorSafe
 import android.net.Uri
@@ -117,6 +123,7 @@ fun AppDrawerScreen(
     
     val state by viewModel.state.collectAsState()
     val style = state.styleConfig
+    val themeTokens = LocalLauncherThemeTokens.current
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -249,19 +256,19 @@ fun AppDrawerScreen(
                     Icon(
                         Icons.Outlined.Search,
                         contentDescription = null,
-                        tint = Color(0xFF00F0FF).copy(alpha = 0.7f)
+                        tint = themeTokens.accent.copy(alpha = 0.7f)
                     )
                 },
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF00F0FF),
+                    focusedBorderColor = themeTokens.border,
                     unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                    focusedContainerColor = Color(0xFF00F0FF).copy(alpha = 0.04f),
-                    unfocusedContainerColor = Color(0x3308080C),
+                    focusedContainerColor = themeTokens.accent.copy(alpha = 0.04f),
+                    unfocusedContainerColor = themeTokens.surface.copy(alpha = 0.20f),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    cursorColor = Color(0xFF00F0FF),
-                    focusedLeadingIconColor = Color(0xFF00F0FF),
+                    cursorColor = themeTokens.accent,
+                    focusedLeadingIconColor = themeTokens.accent,
                     unfocusedLeadingIconColor = Color.White.copy(alpha = 0.5f)
                 ),
                 singleLine = true
@@ -271,7 +278,7 @@ fun AppDrawerScreen(
             PrimaryScrollableTabRow(
                 selectedTabIndex = selectedCategoryIndex,
                 containerColor = Color.Transparent,
-                contentColor = Color(0xFF00F0FF),
+                contentColor = themeTokens.accent,
                 edgePadding = 16.dp,
                 indicator = {
                     Box(
@@ -281,11 +288,11 @@ fun AppDrawerScreen(
                             .padding(horizontal = 4.dp, vertical = 6.dp)
                             .border(
                                 width = 1.dp,
-                                color = Color(0xFF00F0FF).copy(alpha = 0.50f),
+                                color = themeTokens.border.copy(alpha = 0.50f),
                                 shape = RoundedCornerShape(16.dp)
                             )
                             .background(
-                                color = Color(0xFF00F0FF).copy(alpha = 0.08f),
+                                color = themeTokens.accent.copy(alpha = 0.08f),
                                 shape = RoundedCornerShape(16.dp)
                             )
                     )
@@ -297,15 +304,15 @@ fun AppDrawerScreen(
                     Tab(
                         selected = isSelected,
                         onClick = { selectCategory(index) },
-                        selectedContentColor = Color.White,
-                        unselectedContentColor = Color.White.copy(alpha = 0.50f)
+                        selectedContentColor = themeTokens.accent,
+                        unselectedContentColor = themeTokens.textSecondary
                     ) {
                         Box(
                             modifier = Modifier
                                 .padding(horizontal = 4.dp, vertical = 6.dp)
                                 .border(
                                     width = 1.dp,
-                                    color = Color.White.copy(alpha = 0.08f),
+                                    color = themeTokens.border.copy(alpha = 0.15f),
                                     shape = RoundedCornerShape(16.dp)
                                 )
                                 .padding(horizontal = 14.dp, vertical = 6.dp),
@@ -313,7 +320,7 @@ fun AppDrawerScreen(
                         ) {
                             Text(
                                 text = category.name,
-                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.50f),
+                                color = if (isSelected) themeTokens.accent else themeTokens.textSecondary,
                                 fontSize = 13.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                             )
@@ -322,7 +329,7 @@ fun AppDrawerScreen(
                 }
                 // Add category button
                 IconButton(onClick = { showAddCategoryDialog = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add Category", tint = Color(0xFF00F0FF))
+                    Icon(Icons.Filled.Add, contentDescription = "Add Category", tint = themeTokens.accent)
                 }
             }
 
@@ -421,7 +428,7 @@ fun AppDrawerScreen(
                             ) {
                                 Text(
                                     text = item.title,
-                                    color = Color(0xFF00F0FF),
+                                    color = themeTokens.accent,
                                     fontSize = 13.sp,
                                     letterSpacing = 1.sp,
                                     fontWeight = FontWeight.Bold
@@ -431,7 +438,7 @@ fun AppDrawerScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(0.5.dp)
-                                        .background(Color(0xFF00F0FF).copy(alpha = 0.22f))
+                                        .background(themeTokens.accent.copy(alpha = 0.22f))
                                 )
                             }
                         }
@@ -513,8 +520,8 @@ fun AppDrawerScreen(
         val app = showAppMenu!!
         AlertDialog(
             onDismissRequest = { showAppMenu = null },
-            containerColor = Color(0xFF08080C),
-            titleContentColor = Color(0xFF00F0FF),
+            containerColor = themeTokens.surface,
+            titleContentColor = themeTokens.accent,
             textContentColor = Color.White,
             title = { Text(app.name) },
             text = {
@@ -525,7 +532,7 @@ fun AppDrawerScreen(
                             showAppMenu = null
                         },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF), contentColor = Color.Black)
+                        colors = ButtonDefaults.buttonColors(containerColor = themeTokens.accent, contentColor = Color.Black)
                     ) {
                         Text(if (isEs) "🎨 Cambiar Icono" else "🎨 Change Icon", fontWeight = FontWeight.Bold)
                     }
@@ -550,7 +557,7 @@ fun AppDrawerScreen(
                                 RadioButton(
                                     selected = inCategory,
                                     onClick = null,
-                                    colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF00F0FF))
+                                    colors = RadioButtonDefaults.colors(selectedColor = themeTokens.accent)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(category.name)
@@ -561,7 +568,7 @@ fun AppDrawerScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showAppMenu = null }) {
-                    Text(if (isEs) "Cerrar" else "Close", color = Color(0xFF00F0FF))
+                    Text(if (isEs) "Cerrar" else "Close", color = themeTokens.accent)
                 }
             }
         )
@@ -587,8 +594,8 @@ fun AppDrawerScreen(
 
         AlertDialog(
             onDismissRequest = { showIconPicker = null },
-            containerColor = Color(0xFF08080C),
-            titleContentColor = Color(0xFF00F0FF),
+            containerColor = themeTokens.surface,
+            titleContentColor = themeTokens.accent,
             textContentColor = Color.White,
             title = { Text(if (isEs) "Cambiar Icono" else "Change Icon") },
             text = {
@@ -600,7 +607,7 @@ fun AppDrawerScreen(
                             )
                         },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF), contentColor = Color.Black)
+                        colors = ButtonDefaults.buttonColors(containerColor = themeTokens.accent, contentColor = Color.Black)
                     ) {
                         Text(if (isEs) "Elegir desde Galería" else "Choose from Gallery", fontWeight = FontWeight.Bold)
                     }
@@ -645,7 +652,7 @@ fun AppDrawerScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showIconPicker = null }) {
-                    Text(if (isEs) "Cerrar" else "Close", color = Color(0xFF00F0FF))
+                    Text(if (isEs) "Cerrar" else "Close", color = themeTokens.accent)
                 }
             }
         )
@@ -655,8 +662,8 @@ fun AppDrawerScreen(
     if (showAddCategoryDialog) {
         AlertDialog(
             onDismissRequest = { showAddCategoryDialog = false },
-            containerColor = Color(0xFF08080C),
-            titleContentColor = Color(0xFF00F0FF),
+            containerColor = themeTokens.surface,
+            titleContentColor = themeTokens.accent,
             textContentColor = Color.White,
             title = { Text(if (isEs) "Nueva Categoría" else "New Category") },
             text = {
@@ -665,8 +672,8 @@ fun AppDrawerScreen(
                     onValueChange = { newCategoryName = it },
                     label = { Text(if (isEs) "Nombre" else "Name") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF00F0FF),
-                        focusedLabelColor = Color(0xFF00F0FF),
+                        focusedBorderColor = themeTokens.border,
+                        focusedLabelColor = themeTokens.accent,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
@@ -683,7 +690,7 @@ fun AppDrawerScreen(
                         showAddCategoryDialog = false
                     }
                 ) {
-                    Text(if (isEs) "Añadir" else "Add", color = Color(0xFF00F0FF))
+                    Text(if (isEs) "Añadir" else "Add", color = themeTokens.accent)
                 }
             },
             dismissButton = {
@@ -732,6 +739,7 @@ private fun AlphabetIndexRail(
     val tapHaloJobHolder = remember { object { var job: Job? = null } }
     val cardAnimJobHolder = remember { object { var job: Job? = null } }
     val tapDismissJobHolder = remember { object { var job: Job? = null } }
+    val themeTokens = LocalLauncherThemeTokens.current
 
     val currentActiveChar = if (isTouchingIndex) {
         scrubbedLetter ?: selectedLetter ?: activeLetter
@@ -744,11 +752,11 @@ private fun AlphabetIndexRail(
             .width(38.dp)
             .border(
                 width = 0.5.dp,
-                color = Color(0xFF00F0FF).copy(alpha = if (isTouchingIndex) 0.35f else 0.15f),
+                color = themeTokens.border.copy(alpha = if (isTouchingIndex) 0.35f else 0.15f),
                 shape = RoundedCornerShape(19.dp)
             )
             .background(
-                color = Color(0xCC08080C),
+                color = themeTokens.surface.copy(alpha = 0.80f),
                 shape = RoundedCornerShape(19.dp)
             )
             .onGloballyPositioned { coordinates ->
@@ -875,14 +883,14 @@ private fun AlphabetIndexRail(
                                     scaleY = currentHaloScale
                                 }
                                 .background(
-                                    color = Color(0xFF00F0FF).copy(alpha = if (isTapped) 0.30f else 0.22f),
+                                    color = themeTokens.accent.copy(alpha = if (isTapped) 0.30f else 0.22f),
                                     shape = CircleShape
                                 )
                         )
                     }
                     Text(
                         text = char.toString(),
-                        color = if (isActive) Color(0xFF00F0FF) else Color.White.copy(alpha = if (isNovaChar) 0.75f else 0.50f),
+                        color = if (isActive) themeTokens.accent else Color.White.copy(alpha = if (isNovaChar) 0.75f else 0.50f),
                         fontSize = if (isActive) 12.sp else 10.sp,
                         fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Normal
                     )
@@ -907,19 +915,19 @@ private fun AlphabetIndexRail(
                     }
                     .size(42.dp)
                     .background(
-                        color = Color(0xF2080A12),
+                        color = themeTokens.surface.copy(alpha = 0.95f),
                         shape = RoundedCornerShape(10.dp)
                     )
                     .border(
                         width = 1.dp,
-                        color = Color(0xFF00F0FF).copy(alpha = 0.75f),
+                        color = themeTokens.border.copy(alpha = 0.75f),
                         shape = RoundedCornerShape(10.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = (tappedLetter ?: lastTappedLetter)?.toString() ?: "",
-                    color = Color(0xFF00F0FF),
+                    color = themeTokens.accent,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
