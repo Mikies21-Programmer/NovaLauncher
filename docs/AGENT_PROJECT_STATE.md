@@ -1,7 +1,7 @@
 # Estado Persistente del Proyecto — NovaLauncher (Agent State)
 
 > **Documento maestro de sincronización, continuidad operativa y auditoría entre sesiones, Antigravity y Claude.**<br>
-> *Última actualización: 19 de septiembre de 2026 (Post Checkpoint Fase 2D — Adaptive Wallpaper Theming).*<br>
+> *Última actualización: 19 de septiembre de 2026 (Post Checkpoint Fase 2E — Adaptive Wallpaper Theming).*<br>
 > *Regla de seguridad estricta: CERO secretos, contraseñas, keystores ni claves privadas en este repositorio.*
 
 ---
@@ -28,10 +28,7 @@
 | **Fase 2B** | Runtime Theme Token Layer (`LauncherThemeTokens` + `LocalLauncherThemeTokens`) | ✅ **COMPLETADA / VALIDADA / CHECKPOINT** |
 | **Fase 2C** | Theme Proposal Generator (`ThemePalette` → `ThemeProposalGenerator` → `List<ThemeProposal>`) | ✅ **COMPLETADA / VALIDADA / CHECKPOINT** |
 | **Fase 2D** | Theme Proposal Flow + Preview + Apply para IMÁGENES | ✅ **COMPLETADA / VALIDADA FÍSICAMENTE / CHECKPOINT** |
-| **Fase 2E** | Adaptive Theme para VIDEO (Extracción y análisis de frames representativos) | ⏳ **PRÓXIMA FASE / SOLO AUDITORÍA Y DISEÑO** |
-
-> [!IMPORTANT]
-> **Fase 2E todavía NO está implementada.** Su alcance inicial es estrictamente de auditoría técnica y diseño arquitectónico para no desestabilizar la reproducción de video ni los componentes de ExoPlayer.
+| **Fase 2E** | Adaptive Theme para VIDEO (`VideoFrameExtractor` + `ThemePaletteAggregator` + Preview) | ✅ **COMPLETADA / VALIDADA FÍSICAMENTE / CHECKPOINT** |
 
 ---
 
@@ -42,14 +39,14 @@
 * **Componentes:**
   * `ThemePalette`: Modelo inmutable con `@get:ColorInt dominantColor`, `vibrantColor`, `mutedColor`, `isDark: Boolean`, y `averageLuminance: Float`. Incluye `DEFAULT` seguro y neutro para recuperaciones sin excepciones.
   * `WallpaperAnalyzer`: Objeto singleton con `analyze(bitmap, dispatcher = Dispatchers.Default)` y `analyzeSync(bitmap)`.
-* **Memoria y Performance:** Redimensionamiento previo a ~200x200 px (`TARGET_MAX_DIMENSION = 200`), memoria contenida en ~160 KB, reciclaje garantizado del bitmap temporal en `finally`. El bitmap original nunca es alterado. Despachado fuera del hilo principal (`Dispatchers.Default`).
-* **Calidad Cromática:** `.clearFilters()` en `Palette.Builder` para clasificar fondos puros oscuros, claros o monocromáticos; cálculo de luminancia relativa ponderada por población de cada swatch; clasificación `isDark = averageLuminance < 0.5f`.
+* **Memoria y Performance:** Redimensionamiento previo a ~200x200 px (`TARGET_MAX_DIMENSION = 200`), memoria contenida en ~160 KB, reciclaje garantizado del bitmap temporal en `finally`. Despachado fuera del hilo principal (`Dispatchers.Default`).
+* **Calidad Cromática:** `.clearFilters()` en `Palette.Builder` para clasificar fondos puros oscuros, claros o monocromáticos; luminancia relativa ponderada por población de swatches; clasificación `isDark = averageLuminance < 0.5f`.
 * **Tests:** 11 pruebas unitarias en `WallpaperAnalyzerTest` (100% PASS).
 
 #### Fase 2B — Runtime Theme Token Layer (✅ COMPLETADA / VALIDADA / CHECKPOINT)
 * **Modelo Inmutable Puro:** Creado `LauncherThemeTokens` (`accentColor`, `surfaceColor`, `textPrimaryColor`, `textSecondaryColor`, `borderColor`) con enteros `@ColorInt Int` y parser hexadecimal propio libre de Compose y dependencias Android.
 * **Defaults Compatibles:** Paridad visual 100% con la estética cyberpunk original (`#00F0FF` para acento/borde, `#08080C` para superficies oscuras, `#FFFFFF` para texto principal, `#CCCCCC` para secundario).
-* **CompositionLocal Global:** Creado `LocalLauncherThemeTokens` (con extensiones `.accent`, `.surface`, `.textPrimary`, `.textSecondary`, `.border`) inyectado en el root real de composición (`MainActivity.kt` envolviendo a `NavHost`).
+* **CompositionLocal Global:** Creado `LocalLauncherThemeTokens` inyectado en el root real de composición (`MainActivity.kt` envolviendo a `NavHost`).
 * **Consumo Conectado:** Consumo reactivo en `AppDrawerScreen.kt`, `LauncherScreen.kt`, `SettingsScreen.kt` (GlassCard reactivo) y `AdvancedSettingsScreen.kt`.
 * **Tests:** 4 pruebas unitarias en `LauncherThemeTokensTest` (100% PASS).
 
@@ -58,105 +55,100 @@
 * **Modelo:** `ThemeProposal` (`id`, `palette`, `proposedTokens`, `isDark`, `label`, `order`) como estructura transitoria en memoria libre de persistencia.
 * **Garantía Estricta de Contraste:** Validación y ajuste sistemático de luminancia por HSL para ratios mínimos WCAG 2.1: $\ge 4.5:1$ en `textPrimaryColor`, $\ge 3.0:1$ en `textSecondaryColor` y `accentColor`, $\ge 1.5:1$ en `borderColor`.
 * **Deduplicación Perceptual y Sanity Check:**
-  * Evaluado con 5 paletas representativas: oscura azul/violeta, oscura rojiza/magenta, clara azul, clara cálida y monocromática.
-  * Resultados: propuestas perceptualmente diferenciadas, deduplicación funcional (distancia Manhattan RGB), contraste WCAG AAA/AA, coherencia accent/surface y legibilidad en claros y oscuros. En paletas monocromáticas se reduce a 1 sola propuesta en lugar de inventar variantes artificiales.
+  * Evaluado con 5 paletas representativas (oscura azul/violeta, oscura rojiza/magenta, clara azul, clara cálida y monocromática).
+  * Resultados: propuestas perceptualmente diferenciadas, deduplicación funcional (distancia Manhattan RGB), contraste WCAG AAA/AA y reducción a 1 sola propuesta en monocromáticas sin inventar variantes artificiales.
 * **Tests:** 12 pruebas unitarias en `ThemeProposalGeneratorTest` (100% PASS).
 
 #### Fase 2D — Propuestas de Tema + Preview + Aplicar para Imágenes (✅ COMPLETADA / VALIDADA FÍSICAMENTE / CHECKPOINT)
-* **Flujo Final Validado Físicamente en POCO X6 5G:**
-  ```text
-  Imagen seleccionada (Galería)
-          ↓
-  Análisis asíncrono (WallpaperAnalyzer + ThemeProposalGenerator)
-          ↓
-  ThemeProposalDialog (1 a 4 propuestas semánticas con miniatura visual)
-          ↓
-  ┌─────────────────┬──────────────────┬─────────────────┬─────────────────┐
-  │     Aplicar     │   Personalizar   │    Descartar    │      Back       │
-  ├─────────────────┼──────────────────┼─────────────────┼─────────────────┤
-  │ Wallpaper nuevo │ Wallpaper nuevo  │ Wallpaper nuevo │ Wallpaper nuevo │
-  │ +               │ +                │ +               │ +               │
-  │ Persistir tema  │ Abre directamente│ Conserva tema   │ Conserva tema   │
-  │ en DataStore    │ AdvancedSettings │ previo          │ previo          │
-  │                 │ con propuesta    │                 │                 │
-  └─────────────────┴──────────────────┴─────────────────┴─────────────────┘
-  ```
-* **Comportamiento Físico Validado:**
-  * **Aplicar:** Aplica el wallpaper seleccionado y persiste la propuesta de tema seleccionada en preferencias.
-  * **Descartar:** Aplica el wallpaper seleccionado y conserva el tema visual previo del usuario.
-  * **Back:** Aplica el wallpaper seleccionado y conserva el tema visual previo del usuario.
-  * **Personalizar:** Abre directamente `AdvancedSettingsScreen`, utiliza la propuesta seleccionada como punto de partida modificable, mantiene el wallpaper seleccionado y persiste únicamente si el usuario guarda desde la vista avanzada.
-* **Corrección de Defectos Post-Validación Física:**
-  1. *Bug Personalizar:* Corregido enrutamiento directo hacia `AdvancedSettingsScreen` pasando `initialShowAdvanced = true` a través de `openAdvancedInSettings` en `MainActivity` y `SettingsScreen`. Retorno limpio con BackHandler al inicio.
-  2. *Bug Contraste Category Pills:* Eliminados colores fijos `Color.White` en `AppDrawerScreen.kt`. Reemplazados por tokens semánticos `themeTokens.accent` (seleccionado), `themeTokens.textSecondary` (no seleccionado) y borde `themeTokens.border.copy(alpha = 0.15f)`. Probado físicamente en tema claro sobre wallpaper blanco con legibilidad impecable.
+* **Flujo Validado Físicamente:** Galería → Análisis asíncrono → `ThemeProposalDialog` (1 a 4 propuestas) → **Aplicar**, **Personalizar**, **Descartar**, **Back**.
+* **Independencia de Wallpaper:** El wallpaper nuevo permanece vigente en las 4 acciones; el tema se persiste en *Aplicar*, se usa como base en *Personalizar*, o se restaura el tema anterior en *Descartar* y *Back*.
+* **Correcciones Validadas:**
+  1. *Personalizar:* Enrutamiento directo hacia `AdvancedSettingsScreen` pasando `initialShowAdvanced = true` a través de `openAdvancedInSettings` en `MainActivity` y `SettingsScreen`.
+  2. *Contraste Category Pills:* Sustitución de colores hardcodeados por tokens semánticos `themeTokens.accent`, `themeTokens.textSecondary` y borde `themeTokens.border.copy(alpha = 0.15f)`, legibles en tema claro y oscuro.
 * **Tests:** 12 pruebas unitarias en `ThemeProposalFlowHandlerTest` (100% PASS).
+
+#### Fase 2E — Adaptive Theme para VIDEO (✅ COMPLETADA / VALIDADA FÍSICAMENTE / CHECKPOINT)
+* **Flujo Validado Físicamente:**
+  ```text
+  Video seleccionado desde Galería (.mp4, URI)
+                  ↓
+  Detección MIME (video/*)
+                  ↓
+  ThemeProposalDialog desplegado
+                  ↓
+  VideoFrameExtractor (Dispatchers.IO): 3 frames representativos (10%, 50%, 90%)
+    └── Acotado a ~400 px (evita 4K en RAM); MediaMetadataRetriever liberado en finally
+                  ↓
+  WallpaperAnalyzer (Dispatchers.Default): análisis individual por frame
+    └── Frame central (50%) conservado para el preview superior
+    └── Frames auxiliares reciclados inmediatamente
+                  ↓
+  ThemePaletteAggregator: Medoide central geométrico en RGB (sin mezcla artificial)
+    └── averageLuminance media aritmética (isDark coherente)
+                  ↓
+  ThemeProposalFlowHandler → 1 a 4 propuestas semánticas
+                  ↓
+  Aplicar / Personalizar / Descartar / Back (Wallpaper de video aplicado exitosamente)
+  ```
+* **Preview Nativo Sin Dependencias:** Coil renderiza directamente el `Bitmap` representativo mediante `AsyncImage(model = ImageRequest.Builder(context).data(previewBitmap ?: imageUri)...)`, eliminando dependencias adicionales como `coil-video` o reproductores embebidos en el diálogo.
+* **Ciclo de Vida Limpio:** `previewBitmap` se recicla en `DisposableEffect.onDispose`; cero corrutinas ni bitmaps retenidos tras cerrar el diálogo.
+* **Tests:** 7 pruebas unitarias en `ThemePaletteAggregatorTest` (100% PASS). Total global de tests unitarios: **52/52 PASS**.
+
+---
+
+### Diagnóstico de Comportamiento Preexistente de Video
+
+* **Observación Fásica:** Al tener un video como fondo de pantalla, abrir una aplicación multimedia pesada (ej. TikTok, YouTube, Cámara) y regresar a NovaLauncher, de forma intermitente el video puede quedar congelado en el último frame.
+* **Investigación y Desacoplamiento:**
+  * Se confirmó que **Fase 2E no introdujo el problema**: sus componentes son de ejecución puntual y están completamente destruidos al momento del fallo; el problema se reproduce igualmente con los videos preexistentes (`R.raw.bg_view_one`) anteriores a Fase 1.
+  * Causa identificada: [VideoWallpaperManager.kt](file:///c:/Users/migue/AndroidStudioProjects/AnimeLauncher/app/src/main/java/com/daybreak/animelauncher/ui/components/VideoWallpaperManager.kt) (código protegido intacto). Cuando una app pesada reclama decodificadores hardware, SurfaceFlinger invalida la `SurfaceTexture` del `TextureView`. En `onResume()`, `syncSlots()` no detecta cambio de URI ni de página, por lo que no re-vincula `PlayerView.player` ni lanza el watchdog de recuperación, dejando a ExoPlayer decodificando hacia una superficie desconectada.
+* **Estado Oficial:**
+  ```text
+  Known pre-existing video resume issue — independent performance/stability task
+  ```
+  *(NO marcado como resuelto; se mantendrá como tarea independiente de estabilización para no mezclar Theming con el reproductor).*
 
 ---
 
 ### Hitos Históricos Anteriores Consolidados
 
-* **Fase 5A (PASS):** Prominent Disclosure in-app y consentimiento afirmativo para `LauncherAccessibilityService` (`AccessibilityDisclosureDialog.kt`). Validado en hardware real.
-* **Fase 5B (PASS):** Tarjeta "Información y Privacidad" en `SettingsScreen.kt` con versión dinámica y enlace nativo a la política web.
-* **Fase 5C (PASS):** Repositorio dedicado `NovaLauncher-Privacy` publicado en GitHub Pages con contacto oficial `dbreak472@gmail.com`.
-* **Fase 5D (PASS):** Auditoría integral de Google Play Console (Data Safety, Accessibility Declaration, Listing, Build Release).
-* **Fase 5E-0 a 5E-2 (PASS):** Generación de nueva **Upload Key v2** (`upload-keystore-v2.jks`) y exportación del certificado público RFC/PEM (`upload_certificate-v2.pem`) fuera del repo en `C:\Users\migue\NovaLauncher-Keys\`.
-* **PERFORMANCE-03 (VERIFIED):** Capacidad de `IconCache` fijada en 128 entradas (`MAX_ENTRIES = 128`). 100% hit rate en hardware real (412 hits / 0 misses). Retiro de instrumentación temporal.
-* **DRAWER & MOTION SYSTEM CHECKPOINT (PASS / VALIDATED):**
-  * Stream híbrido en `LazyColumn` plana con `DrawerListItem.Header` y `DrawerListItem.AppRow` a 120 FPS.
-  * `AlphabetIndexRail` con canal conflated, tarjeta activa dinámica y scrubbing continuo de A a Z.
-  * Swipe horizontal entre categorías desambiguado con touch slop en `PointerEventPass.Initial`.
-  * Nova Motion System (6/6 completo): Drawer Open/Close, Category Pill, Rail Feedback, Row Tap Feedback y Resume Fade con corrección `ON_STOP` para evitar micro-parpadeos.
+* **Fase 5A a 5D (PASS):** Prominent Disclosure in-app, Tarjeta de Privacidad, repositorio `NovaLauncher-Privacy` en GitHub Pages y auditoría integral de Play Console.
+* **Fase 5E-0 a 5E-2 (PASS):** Upload Key v2 generada (`upload-keystore-v2.jks`) y certificado PEM (`upload_certificate-v2.pem`) fuera del repo.
+* **PERFORMANCE-03 (VERIFIED):** Capacidad de `IconCache` fijada en 128 (`MAX_ENTRIES = 128`), 100% hit rate en hardware real (412 hits / 0 misses).
+* **DRAWER & MOTION SYSTEM CHECKPOINT (PASS / VALIDATED):** Stream híbrido en `LazyColumn` a 120 FPS, `AlphabetIndexRail` conflated, swipe horizontal entre categorías y Nova Motion System (6/6 completo con corrección `ON_STOP` en Resume Fade).
 
 ---
 
 ## 3. Arquitectura Actual del Adaptive Theming
 
-El subsistema de Theming Adaptativo de NovaLauncher está estructurado en capas desacopladas con responsabilidades estrictas:
-
-1. **`WallpaperAnalyzer`:**
-   * Singleton asíncrono responsable de extraer la paleta cromática dominante a partir de un `Bitmap`.
-   * Realiza downscaling a ~200x200 px, limpieza de filtros y cálculo de luminancia relativa sin afectar el hilo principal.
-2. **`ThemePalette`:**
-   * Estructura inmutable portadora de colores extraídos (`dominantColor`, `vibrantColor`, `mutedColor`, `isDark`, `averageLuminance`).
-   * Libre de dependencias con Compose o vistas.
-3. **`ThemeProposal`:**
-   * Entidad de datos transitoria que encapsula una propuesta semántica generada (`id`, `palette`, `proposedTokens`, `isDark`, `label`, `order`).
-4. **`ThemeProposalGenerator`:**
-   * Motor matemático determinista puro en Kotlin estándar.
-   * Transforma una `ThemePalette` en una lista de 1 a 4 `ThemeProposal` aplicando reglas WCAG 2.1 para contraste de texto y bordes.
-5. **`ThemeProposalFlowHandler`:**
-   * Controlador lógico puro responsable de las transiciones de estado (`handleApply`, `handleDiscard`, `handleBack`, `handleCustomize`) y de la conversión bidireccional entre `ThemeProposal` y `AdvancedStyleConfig`.
-6. **`ThemeProposalDialog`:**
-   * Diálogo de pantalla completa (`usePlatformDefaultWidth = false`, fondo Glass `#030305` con 95% de opacidad) para la previsualización interactiva de propuestas mediante miniatura sintética `LauncherThemeMiniature`.
-7. **`LauncherThemeTokens` & `LocalLauncherThemeTokens`:**
-   * Capa global de tokens visuales runtime (`accentColor`, `surfaceColor`, `textPrimaryColor`, `textSecondaryColor`, `borderColor`).
-   * Provistos de forma reactiva en `MainActivity` mediante `CompositionLocalProvider` sobre todo el árbol de navegación.
-8. **`AdvancedStyleConfig`:**
-   * Modelo de configuración y persistencia del launcher. Mantiene total compatibilidad histórica y continúa siendo la fuente única de guardado en disco.
+1. **`WallpaperAnalyzer`:** Singleton asíncrono para análisis cromático y downscaling de bitmaps a ~200 px sin afectar el hilo principal.
+2. **`ThemePalette`:** Estructura inmutable portadora de colores (`dominantColor`, `vibrantColor`, `mutedColor`, `isDark`, `averageLuminance`).
+3. **`ThemeProposal`:** Entidad transitoria que encapsula propuestas semánticas (`id`, `palette`, `proposedTokens`, `isDark`, `label`, `order`).
+4. **`ThemeProposalGenerator`:** Motor matemático puro en Kotlin estándar con contrastes WCAG 2.1 y deduplicación perceptual.
+5. **`ThemeProposalFlowHandler`:** Controlador de transiciones de estado (`handleApply`, `handleDiscard`, `handleBack`, `handleCustomize`) y conversión bidireccional con `AdvancedStyleConfig`.
+6. **`ThemeProposalDialog`:** Diálogo de pantalla completa Glass (`usePlatformDefaultWidth = false`) con miniatura reactiva `LauncherThemeMiniature`.
+7. **`VideoFrameExtractor`:** Extractor puntual de 3 frames (10%, 50%, 90%) en `Dispatchers.IO` escalados a ~400 px con liberación estricta de `MediaMetadataRetriever`.
+8. **`ThemePaletteAggregator`:** Agregador puro que selecciona el medoide geométrico RGB entre las paletas de los frames muestreados.
+9. **`LauncherThemeTokens` & `LocalLauncherThemeTokens`:** Capa de tokens visuales runtime provista globalmente en `MainActivity`.
+10. **`AdvancedStyleConfig`:** Modelo de configuración existente y fuente única de persistencia en DataStore.
 
 ---
 
 ## 4. Decisiones de Producto Consolidadas
 
-Las siguientes decisiones se encuentran cerradas y no deben reabrirse sin justificación explícita del usuario:
-
-* **A) Propuesta Opcional:** El Adaptive Wallpaper Theming es una recomendación opcional, nunca un requisito bloqueante para cambiar de fondo de pantalla.
-* **B) Labels Semánticos:** Las propuestas emplean exclusivamente etiquetas semánticas universales:
-  * `Dominante`
-  * `Vibrante`
-  * `Equilibrado`
-  *(Prohibido el uso de nombres de fantasía o marketing artificial).*
-* **C) Cardinalidad Flexible (1 a 4):** El sistema puede emitir entre 1 y 4 propuestas dependiendo de la riqueza cromática del fondo. La UI jamás debe asumir un número fijo de 3.
-* **D) Previsualización Transitoria:** La exploración y selección de temas en el diálogo opera en memoria sobre estado transitorio (`updateStyleConfigTransient`). La persistencia en almacenamiento solo se ejecuta mediante la acción explícita de "Aplicar" (o guardar desde ajustes avanzados).
-* **E) Independencia de Fondo y Tema en Descartar/Back:** Al descartar o pulsar atrás, el nuevo fondo de pantalla se conserva y se restaura el tema visual previo del usuario.
-* **F) Personalización Editable:** La acción "Personalizar" entrega la propuesta elegida como estado base editable dentro de `AdvancedSettingsScreen`.
-* **G) Exclusión Inicial de Video:** La reproducción y selección de video wallpaper permanecen fuera del flujo automático de Fase 2D.
+* **A) Propuesta Opcional:** Adaptive Theming es una sugerencia opcional; el usuario siempre puede aplicar el fondo sin adoptar el tema.
+* **B) Labels Semánticos:** Etiquetas universales `Dominante`, `Vibrante`, `Equilibrado` (cero marketing artificial).
+* **C) Cardinalidad Flexible (1 a 4):** El sistema emite entre 1 y 4 propuestas según la riqueza del wallpaper.
+* **D) Previsualización Transitoria:** La exploración opera en memoria (`updateStyleConfigTransient`); la persistencia solo ocurre en Apply o ajustes avanzados.
+* **E) Independencia de Fondo y Tema en Descartar/Back:** Se aplica el fondo nuevo y se conserva el tema previo del usuario.
+* **F) Personalización Editable:** "Personalizar" entrega la propuesta como base editable dentro de `AdvancedSettingsScreen`.
+* **G) Alcance de Video Resuelto:** Videos alimentan propuestas idénticas mediante muestreo de 3 frames sin análisis continuo en reproducción.
 
 ---
 
 ## 5. Componentes Protegidos e Intactos
 
-Queda terminantemente prohibido modificar, refactorizar o alterar las siguientes piezas arquitectónicas críticas:
+Queda terminantemente prohibido modificar o refactorizar sin evidencia y aprobación explícita:
 
 * `VideoWallpaperManager.kt`
 * `VideoBackground.kt`
@@ -175,80 +167,142 @@ Queda terminantemente prohibido modificar, refactorizar o alterar las siguientes
 * Lógica de scroll y selección/cambio de categorías del Drawer
 * Ciclo de vida y binding de AppWidgets
 
-> [!CAUTION]
-> **Fase 2E debe diseñarse alrededor del sistema actual de video.** No se permite modificar inicialmente `VideoWallpaperManager` ni `VideoBackground`.
-
 ---
 
-## 6. Hoja de Ruta y Reglas para la Próxima Fase 2E (Video Adaptive Theming)
+## 6. Nuevo Bloque Prioritario: Performance Engineering / App Performance
 
-### Naturaleza de la Fase 2E
-* **ESTADO:** ⏳ **SOLO AUDITORÍA Y DISEÑO TÉCNICO. CERO IMPLEMENTACIÓN DE CÓDIGO.**
+* **ESTADO INICIAL:** ⏳ **AUDITORÍA PENDIENTE (CERO CÓDIGO / CERO OPTIMIZACIONES PREMATURAS)**
+* **Objetivo:** Conseguir que NovaLauncher sea extraordinariamente fluido y estable en una gama amplia de dispositivos Android (desde hardware modesto hasta gama alta), evitando optimizaciones a ciegas y manteniendo intactas las funcionalidades validadas.
 
-### Objetivo Conceptual
+### Principio Fundamental de Rendimiento
+NovaLauncher **NO** debe intentar maximizar el consumo de CPU/GPU/RAM constantemente. La estrategia arquitectónica oficial es:
+> *"Usar únicamente los recursos necesarios para mantener la experiencia objetivo y aumentar/reducir la calidad dinámicamente cuando la capacidad y la carga real del dispositivo lo permitan."*
+
 ```text
-Video Wallpaper (.mp4 / URI)
-       ↓
-Extracción representativa de frames (MediaMetadataRetriever / alternativa no bloqueante)
-       ↓
-Análisis cromático puntual (WallpaperAnalyzer)
-       ↓
-Generación de propuestas (ThemeProposalGenerator)
-       ↓
-Mismo modelo ThemeProposal y mismo diálogo ThemeProposalDialog (Fase 2D)
+DEVICE CAPABILITY  +  CURRENT LOAD  +  FRAME BUDGET
+                        ↓
+       ADAPTIVE QUALITY / RESOURCE BUDGET
 ```
+* **Objetivos concretos:** Mantener 120/90/60 FPS estables según pantalla, reducir jank (frames caídos), eliminar trabajo redundante en segundo plano, preservar batería, contener presión de memoria y permitir calidad ultra solo cuando sea seguro.
 
-### Reglas Técnicas Obligatorias para Fase 2E
-1. **Sin Análisis Continuo:** Prohibido analizar el video frame por frame durante la reproducción.
-2. **Ejecución Única:** El análisis ocurre exclusivamente al seleccionar o cambiar el video de fondo, con estrategia de caché posterior.
-3. **Puntos Críticos a Auditar:**
-   * Métodos de extracción de frames eficientes en Android (APIs nativas vs ExoPlayer).
-   * Cantidad óptima de frames (ej. 1 a 3 frames: inicio, mitad, tercio) y representatividad temporal.
-   * Impacto en videos de alta resolución (1080p, 4K) y videos de larga duración.
-   * Consumo de CPU, memoria RAM y contención de asignaciones de `Bitmap`.
-   * Mecanismos de cancelación inmediata si el usuario cancela o sale de la pantalla.
-   * Elección del `CoroutineDispatcher` apropiado (`Dispatchers.IO` / `Dispatchers.Default`).
-   * Algoritmo de combinación o fusión de paletas multiframe.
-   * Manejo de fallbacks ante fallos de decodificación de códecs locales o formatos incompatibles.
-   * Experiencia de usuario (latencia percibida, spinners o indicadores de carga no invasivos).
+### Modelo de Capacidad del Dispositivo (Hipótesis para la Auditoría)
+No clasificar dispositivos únicamente por fabricante o modelo comercial. Investigar un perfil de capacidades observable y conservador:
+* Memoria RAM total y disponible (`ActivityManager.MemoryInfo`).
+* Nivel de API / Versión de Android.
+* Resolución nativa y tasa de refresco (`Display.mode`).
+* Capacidad de CPU/GPU inferida de forma ligera y no invasiva.
+* Presión de memoria del sistema (`onTrimMemory`).
+* Estado térmico cuando la API esté disponible (`PowerManager.OnThermalStatusChangedListener`).
+* Perfiles conceptuales hipotéticos: `CONSTRAINED`, `STANDARD`, `HIGH` *(Hipótesis de diseño; Claude evaluará si son necesarios o si conviene un modelo continuo).*
+
+### Quality Budget (Presupuesto de Calidad)
+Cada subsistema potencialmente costoso debe tener un presupuesto evaluado:
+* Animaciones y Motion System.
+* Blur y transparencias en GlassCard.
+* Wallpaper dinámico de video y prebuffering.
+* Cantidad de recursos precargados y tamaño de cachés (`IconCache`).
+* Procesamiento de imágenes y Adaptive Theming.
+* Ciclo de vida y actualización de widgets nativos.
+* Recomposiciones y frecuencia de emisión de estados en Compose.
+* *Regla:* Primero medir para determinar qué es realmente costoso y qué ya está optimizado.
+
+### Filosofía de Optimización
+```text
+MEDIR  →  LOCALIZAR  →  CAMBIAR (QUIRÚRGICO)  →  MEDIR OTRA VEZ
+```
+* **Prohibido:** `SUPONER → CAMBIAR TODO → ESPERAR QUE SEA MÁS RÁPIDO`.
+* Toda optimización debe contar con: hipótesis formal, métrica asociada, baseline medido, cambio mínimo aislado, comparativa cuantitativa antes/después y validación física en hardware real.
+
+### Escenarios Críticos a Medir (Journeys Candidatos A–T)
+1. **A.** Cold start (desde proceso muerto).
+2. **B.** Warm start (regreso desde segundo plano).
+3. **C.** Home completamente cargado y reposo.
+4. **D.** Abrir y cerrar App Drawer.
+5. **E.** Scroll rápido del Drawer (124+ apps).
+6. **F.** Scrubbing continuo del `AlphabetIndexRail`.
+7. **G.** Cambio de categorías (swipe y tabs).
+8. **H.** Búsqueda en tiempo real de aplicaciones.
+9. **I.** Apertura y cierre de Settings general.
+10. **J.** Apertura y manipulación de sliders en Advanced Settings.
+11. **K.** Renderizado de Widgets nativos en pantalla de inicio.
+12. **L.** Widgets durante scroll y paginación horizontal.
+13. **M.** Wallpaper de imagen estática (carga y render).
+14. **N.** Wallpaper de video en reproducción continua.
+15. **O.** Regreso desde otra aplicación externa pesada (TikTok/Cámara).
+16. **P.** Transiciones del Motion System.
+17. **Q.** Cambio de fondo de pantalla en vivo.
+18. **R.** Flujo de análisis y generación de Adaptive Theming.
+19. **S.** Uso prolongado sostenido (fugas de memoria / retención de buffers).
+20. **T.** Comportamiento bajo presión extrema de memoria (`TRIM_MEMORY`).
+
+### Métricas Candidatas
+* **Startup:** Time To Initial Display (TTID), Time To Full Display (TTFD).
+* **Runtime / Jank:** `frameDurationCpuMs`, `frameOverrunMs`, percentiles P50, P90, P95, P99 de renderizado.
+* **Memoria:** PSS / RSS usado, tasa de crecimiento, frecuencia y pausas de GC, detección de fugas.
+* **CPU/GPU:** Porcentaje de uso en reposo vs interacción, picos y temperatura.
+* **Batería:** Consumo energético por trabajo redundante.
+* *Nota:* Los valores objetivo se establecerán a partir del baseline empírico; no se inventarán umbrales arbitrarios.
+
+### Herramientas de Auditoría a Evaluar
+* Jetpack Macrobenchmark (priorizando recorridos reales de usuario en hardware físico).
+* `FrameTimingMetric` y `StartupTimingMetric`.
+* Android Studio Profiler (CPU, Memory, Energy).
+* Perfetto / System Trace.
+* Baseline Profiles y Startup Profiles (evaluar preparación del proyecto, impacto esperado y coste de mantenimiento).
+
+### Áreas de Investigación en Jetpack Compose (Sin prejuzgar bugs)
+* Estabilidad de parámetros y lambdas (`@Stable`, `@Immutable`).
+* Uso de `derivedStateOf` vs lecturas directas.
+* Defer reads mediante lambdas de Modifier (`graphicsLayer { alpha = ... }`, `offset { ... }`).
+* Claves explícitas (`key`) y `contentType` en `LazyColumn` / `LazyVerticalGrid`.
+* Evitar recomposiciones innecesarias en observadores de alta frecuencia.
+
+### Multigama — Objetivo Real
+* La aplicación debe comportarse de forma excelente en gama baja (2-3 GB RAM, CPUs modestas), gama media (POCO X6 5G de referencia) y gama alta (SoCs flagship, 120+ Hz).
+* La auditoría debe proponer una metodología para validar o simular dispositivos con restricciones sin depender exclusivamente del POCO X6.
+
+### Lo Que NO Se Debe Hacer (Anti-Patrones)
+* NO realizar optimizaciones globales sin datos de profiling previos.
+* NO eliminar funcionalidades ni degradar la calidad visual por "intuición de performance".
+* NO modificar componentes protegidos sin evidencia reproducible.
+* NO agregar cachés ni concurrencia arbitraria sin cuantificar su beneficio y consumo de RAM.
+* NO tocar widgets estables ni eliminar animaciones ya aprobadas.
+* NO tomar mediciones en modo Debug como referencia de rendimiento de Release.
+
+### Performance Regression Policy
+Toda optimización debe respetar la matriz: **FUNCIONALIDAD + PERFORMANCE**. Un cambio no se acepta si mejora una métrica aislada pero degrada la experiencia del usuario (ej. eliminar jank pero provocar parpadeo de placeholders, o acelerar el arranque pero romper la carga de widgets).
+
+### Estado de Rendimiento Actual Demostrado
+* `IconCache = 128` y Drawer en `LazyColumn` plana validados físicamente a 120 FPS sin jank con 124 apps instaladas.
+* Nova Motion System 6/6 completamente validado.
+* Adaptive Wallpaper Theming opera en memoria transitoria sin retención de recursos.
+* Defecto de video resume intermitente aislado en `VideoWallpaperManager` como tarea independiente.
+* No existen aún baselines formales de Macrobenchmark, capability profile dinámico ni quality budget implementado.
 
 ---
 
-## 7. Protocolo de Trabajo con Claude (Auditor / Revisor Adversarial)
+## 7. Próxima Acción Oficial
 
-Para mantener la máxima robustez en el proyecto:
-
-1. **Rol de Claude:** Actuará exclusivamente como **AUDITOR Y REVISOR ADVERSARIAL**.
-2. **Contexto de Operación:** Claude debe inspeccionar el estado real del proyecto tomando [AGENT_PROJECT_STATE.md](file:///c:/Users/migue/AndroidStudioProjects/AnimeLauncher/docs/AGENT_PROJECT_STATE.md) como única fuente de verdad.
-3. **Prohibición de Edición:** Claude **NO** debe modificar código directamente.
-4. **Entregables de Claude:** Informes de arquitectura, identificación de vulnerabilidades, análisis de rendimiento y recomendaciones técnicas estructuradas.
-5. **Implementación:** Antigravity implementará código únicamente tras revisar, validar y autorizar formalmente el diseño de auditoría.
-6. **Protección Estricta:** No se aceptarán propuestas que sugieran modificar innecesariamente los componentes protegidos.
+* **NEXT:** `Performance Engineering — Architecture & Measurement Audit`
+* **Primera Acción:** Claude realizará una auditoría profunda de rendimiento y escalabilidad arquitectónica sobre el código real del proyecto antes de cualquier intervención.
+* **Alcance de la Auditoría:** Inspección de arquitectura, identificación de cuellos de botella reales, diseño de baselines, selección de critical user journeys, propuesta metodológica multigama, evaluación de Macrobenchmark/Baseline Profiles y definición de paquetes mínimos de trabajo.
+* **Restricción:** Claude **NO** debe modificar código del proyecto.
 
 ---
 
-## 8. Workflow Oficial del Proyecto
+## 8. Protocolo de Trabajo y Workflow Oficial
 
-Todo avance técnico en NovaLauncher debe apegarse al siguiente ciclo de 11 pasos:
-
-1. **Auditoría / Análisis Técnico** (identificación de límites y componentes afectados).
-2. **Revisión del Reporte** (validación de supuestos y descarte de refactors oportunistas).
-3. **Prompt Quirúrgico de Implementación** (delimitación estricta de alcance).
-4. **Implementación con Antigravity** (edición mínima indispensable y aislada).
-5. **Verificación Automatizada Completa:**
-   * `testDebugUnitTest`
-   * `assembleDebug`
-   * `lintDebug`
-   * `bundleRelease`
+1. **Auditoría / Análisis Técnico** (delimitación del problema con métricas).
+2. **Revisión del Reporte** (validación de hipótesis).
+3. **Prompt Quirúrgico de Implementación** (alcance mínimo y cerrado).
+4. **Implementación con Antigravity** (un solo agente modificando código a la vez).
+5. **Verificación Automatizada Completa:** `testDebugUnitTest`, `assembleDebug`, `lintDebug`, `bundleRelease`.
 6. **Prueba Física en Dispositivo Real (POCO X6 5G).**
-7. **Correcciones Dirigidas** (solamente si la validación física evidencia defectos).
-8. **Nueva Prueba Física de Confirmación.**
-9. **Actualización del Cerebro** (`AGENT_PROJECT_STATE.md`).
-10. **Git Checkpoint Oficial.**
-11. **Paso a la Siguiente Fase.**
-
-> [!IMPORTANT]
-> **Principio de Aislamiento:** UN SOLO AGENTE MODIFICANDO EL PROYECTO A LA VEZ.
+7. **Medición Cuantitativa Comparativa** (antes vs después).
+8. **Correcciones Dirigidas** (si se presentan desviaciones).
+9. **Confirmación Física.**
+10. **Actualización del Cerebro** (`AGENT_PROJECT_STATE.md`).
+11. **Git Checkpoint Oficial.**
 
 ---
 
@@ -262,33 +316,24 @@ Todo avance técnico en NovaLauncher debe apegarse al siguiente ciclo de 11 paso
   ```text
   2A:DF:B7:D2:4E:62:7C:29:52:42:2B:28:D7:11:F3:D9:34:F1:9E:66:FB:B3:05:3F:AB:14:E7:97:82:39:3B:F1
   ```
-* **Regla de Seguridad de Credenciales:** Prohibido exponer a agentes contraseñas, archivos `.jks`, `.keystore`, `.pem` o `keystore.properties`. Todas las reglas de exclusión deben permanecer activas en `.gitignore`.
+* **Regla de Seguridad:** Cero claves ni contraseñas en el repositorio. Archivos sensibles ignorados por `.gitignore`.
 
 ---
 
-## 10. Validaciones Automatizadas y Físicas
+## 10. Validaciones Automatizadas Consolidadas
 
-### Validaciones Automatizadas (100% PASS)
 * `git diff --check`: **PASS** (0 errores de formato, fin de línea o sintaxis).
-* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (45/45 pruebas unitarias aprobadas al 100%).
+* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (52/52 pruebas unitarias aprobadas al 100%).
 * `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado e instalado exitosamente).
 * `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores).
 * `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Minificación R8 y `lintVitalRelease` exitosos; AAB generado).
 
-### Validación Física en Hardware Real (POCO X6 5G — HyperOS / Android 14)
-* **Flujo Normal de Selección:** **PASS** (despliegue fluido del diálogo tras elegir imagen).
-* **Acción Aplicar:** **PASS** (wallpaper nuevo aplicado y tema persistido correctamente).
-* **Acción Descartar:** **PASS** (wallpaper nuevo aplicado y estilo previo restaurado).
-* **Acción Back:** **PASS** (wallpaper nuevo aplicado y estilo previo restaurado).
-* **Acción Personalizar:** **PASS** (apertura directa de `AdvancedSettingsScreen` con la propuesta como base).
-* **Contraste Extremo (Tema Claro / Wallpaper Blanco):** **PASS** (category pills con contraste óptimo y texto legible).
-* **Rendimiento e Integridad:** **PASS** (cero memory leaks, cero bloqueos del hilo principal, 120 FPS sostenidos).
-
 ---
 
-## 11. Tareas Pendientes y Siguientes Pasos
+## 11. Tareas Pendientes y Hoja de Ruta
 
-1. **Fase 2E — Adaptive Theme para VIDEO:** Realizar auditoría técnica y diseño arquitectónico para la extracción de frames representativos sin modificar componentes protegidos.
-2. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google Play Console (ventana de 24-48 horas).
-3. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.
-4. **Accesibilidad y Ficha de Tienda:** Preparar video demostrativo de accesibilidad para Play Console y activos gráficos de la ficha (icono 512x512 y banner 1024x500).
+1. **Performance Engineering — Auditoría Inicial por Claude:** Inspección arquitectónica y diseño del plan de medición de rendimiento multigama.
+2. **Estabilización de Video Resume (Independiente):** Diagnóstico y corrección de la re-vinculación de `TextureView` en `VideoWallpaperManager` al regresar de apps pesadas.
+3. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
+4. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.
+5. **Accesibilidad y Ficha de Tienda:** Preparar video demostrativo de accesibilidad para Play Console y activos gráficos finales.
