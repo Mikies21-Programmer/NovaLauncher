@@ -7,9 +7,21 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthMode
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthenticator
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsFlowState
+import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsAuthDialog
+import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsScreen
+import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsSetupDialog
+import com.daybreak.animelauncher.ui.screens.hiddenapps.hiddenAppsSpreadGesture
 import com.daybreak.animelauncher.theming.ThemeProposalDialog
 import com.daybreak.animelauncher.theming.ThemeProposalFlowHandler
+import androidx.activity.OnBackPressedDispatcherOwner
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.compose.ReportDrawn
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -51,6 +63,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -79,7 +92,11 @@ fun LauncherScreen(
     val state by viewModel.state.collectAsState()
     val themeTokens = LocalLauncherThemeTokens.current
     val context = LocalContext.current
-    
+
+    // PERF-OPT-2: señal TTFD (time-to-fully-drawn) para Macrobenchmark/baseline profile.
+    // Se emite cuando este contenido (launcher completo) ha compuesto y dibujado su primer frame.
+    ReportDrawn()
+
     val widgetHostManager = viewModel.widgetHostManager
     val appWidgetHost = widgetHostManager.appWidgetHost
 
@@ -97,20 +114,34 @@ fun LauncherScreen(
             onAccessibilityDisclosureRequested = null
         }
     }
-    val pageWidgetBoundsMap = remember { mutableStateMapOf<Int, List<Rect>>() }
-    val installedApps by viewModel.installedApps.collectAsState()
-
+    val pageWidgetBoundsMap = remember { java.util.concurrent.ConcurrentHashMap<Int, List<Rect>>() }
     val pagerState = rememberPagerState(pageCount = { state.viewCount })
+    val getCurrentWidgetBounds: () -> List<Rect> = remember(pagerState) {
+        { pageWidgetBoundsMap[pagerState.currentPage] ?: emptyList() }
+    }
+    val installedApps by viewModel.installedApps.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     val currentNavState by rememberUpdatedState(navState)
-    val currentWidgetBoundsList by rememberUpdatedState(pageWidgetBoundsMap[pagerState.currentPage] ?: emptyList())
     val currentWidgetEditMode by rememberUpdatedState(isWidgetEditMode)
     val currentPinchEnabled by rememberUpdatedState(state.gesturesConfig.pinchInForSettings)
     val currentSwipeDownEnabled by rememberUpdatedState(state.gesturesConfig.swipeDownForNotifications)
     val currentLanguage by rememberUpdatedState(state.language)
 
+    // NOTA DE SEGURIDAD (HALLAZGO 6): La ausencia de rememberSaveable para el estado de autenticación
+    // y visibilidad de Apps Ocultas es intencional para garantizar el principio fail-closed.
+    // Tras la recreación de la Activity o muerte del proceso, la sesión se revoca en memoria
+    // exigiendo obligatoriamente autenticación nuevamente.
+    var hiddenAppsFlowState by remember { mutableStateOf<HiddenAppsFlowState>(HiddenAppsFlowState.Closed) }
+    var isHiddenAppsAuthenticated by remember { mutableStateOf(false) }
+    val hiddenAppsAuthenticator = remember { HiddenAppsAuthenticator() }
+
     fun handleBackNavigation(): Boolean {
+        if (hiddenAppsFlowState != HiddenAppsFlowState.Closed) {
+            isHiddenAppsAuthenticated = false
+            hiddenAppsFlowState = HiddenAppsFlowState.Closed
+            return true
+        }
         if (isWidgetEditMode) {
             isWidgetEditMode = false
             return true
@@ -158,6 +189,8 @@ fun LauncherScreen(
     // Escuchar evento HOME del sistema (onNewIntent) para volver a Página 0 y cerrar overlays
     LaunchedEffect(Unit) {
         viewModel.homeActionTrigger.collect {
+            isHiddenAppsAuthenticated = false
+            hiddenAppsFlowState = HiddenAppsFlowState.Closed
             isWidgetEditMode = false
             navState = LauncherNavState.Home
             if (pagerState.currentPage != 0) {
@@ -184,9 +217,21 @@ fun LauncherScreen(
         }
     }
 
-    // Sincronizar el gestor de fondos de video con la página activa
-    LaunchedEffect(pagerState.currentPage) {
-        VideoWallpaperManager.onPageSelected(pagerState.currentPage, context)
+    // Estrategia de prewarm híbrida: arranca con 0 para maximizar velocidad de cold start,
+    // y conmuta suavemente a 1 tras asentarse la pantalla para pre-renderizar páginas adyacentes sin black flash.
+    var dynamicBeyondViewport by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(400)
+        dynamicBeyondViewport = 1
+    }
+
+    // Sincronizar el gestor de fondos de video en cada movimiento del pager con dirección del gesto
+    LaunchedEffect(pagerState) {
+        snapshotFlow {
+            Triple(pagerState.currentPage, pagerState.targetPage, pagerState.currentPageOffsetFraction)
+        }.collect { (curr, target, offset) ->
+            VideoWallpaperManager.onPageScrolled(curr, target, offset, context)
+        }
     }
 
     // Señal explícita y determinista de cambio de topología de páginas (añadir/quitar pantalla)
@@ -238,6 +283,8 @@ fun LauncherScreen(
                 Lifecycle.Event.ON_STOP -> {
                     // Solo se marca true si la Activity se detiene efectivamente al pasar a segundo plano
                     hasBeenStopped[0] = true
+                    isHiddenAppsAuthenticated = false
+                    hiddenAppsFlowState = HiddenAppsFlowState.Closed
                 }
                 Lifecycle.Event.ON_RESUME -> {
                     // Si el usuario desbloqueó el dispositivo, la animación de desbloqueo (unlockAlpha) toma precedencia
@@ -324,6 +371,24 @@ fun LauncherScreen(
         }
     }
 
+    // HIDDEN-APPS-FIX-02: Launchers de credencial de dispositivo en el scope de la Activity.
+    // rememberLauncherForActivityResult dentro del contenido de un Compose Dialog
+    // (HiddenAppsAuthDialog) lanza IllegalStateException por falta de
+    // LocalActivityResultRegistryOwner y mata al launcher HOME (incidente original,
+    // reproducido el 02-oct 15:31/15:32). El diálogo registra su manejador vía sinks.
+    val hiddenAuthCredentialResult = remember { mutableStateOf<((androidx.activity.result.ActivityResult) -> Unit)?>(null) }
+    val hiddenResetCredentialResult = remember { mutableStateOf<((androidx.activity.result.ActivityResult) -> Unit)?>(null) }
+    val hiddenAppsDeviceCredentialLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        hiddenAuthCredentialResult.value?.invoke(result)
+    }
+    val hiddenAppsResetCredentialLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        hiddenResetCredentialResult.value?.invoke(result)
+    }
+
     var pendingThemeProposalUri by remember { mutableStateOf<Uri?>(null) }
     var themeProposalInitialConfig by remember { mutableStateOf(state.styleConfig) }
 
@@ -366,7 +431,7 @@ fun LauncherScreen(
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = (navState == LauncherNavState.Home),
-            beyondViewportPageCount = 0,
+            beyondViewportPageCount = dynamicBeyondViewport,
             key = { it },
             modifier = Modifier
                 .fillMaxSize()
@@ -397,7 +462,7 @@ fun LauncherScreen(
 
                             // PR-01 / 4B-01: Si el toque inicial ocurre sobre la región física real de un widget nativo,
                             // no secuestrar el gesto vertical para permitir el scroll natural o interacción del widget.
-                            if (downChange != null && currentWidgetBoundsList.any { it.contains(downChange.position) }) {
+                            if (downChange != null && getCurrentWidgetBounds().any { it.contains(downChange.position) }) {
                                 isTracking = false
                             }
 
@@ -461,7 +526,7 @@ fun LauncherScreen(
                                 val id1 = p1.id
                                 val id2 = p2.id
 
-                                val boundsList = currentWidgetBoundsList
+                                val boundsList = getCurrentWidgetBounds()
                                 // Si ambos dedos comenzaron dentro de regiones físicas de widgets,
                                 // no capturar pinch (el usuario está interactuando con el contenido del widget).
                                 val bothStartedInWidget = boundsList.isNotEmpty() &&
@@ -495,8 +560,8 @@ fun LauncherScreen(
                                         val cumulativeZoom = currentDistance / initialDistance
 
                                         // Umbral: reducción de al menos 25% respecto a la distancia inicial (zoom < 0.75f).
-                                        // Mientras isWidgetEditMode sea true, no capturar pinch ni abrir Settings.
-                                        if (!hasTriggered && !bothStartedInWidget && !currentWidgetEditMode && isRoot && currentPinchEnabled && cumulativeZoom < 0.75f) {
+                                        // Mientras isWidgetEditMode sea true o Hidden Apps esté activo, no capturar pinch ni abrir Settings.
+                                        if (!hasTriggered && !bothStartedInWidget && !currentWidgetEditMode && isRoot && currentPinchEnabled && hiddenAppsFlowState == HiddenAppsFlowState.Closed && cumulativeZoom < 0.75f) {
                                             hasTriggered = true
                                             change1.consume()
                                             change2.consume()
@@ -513,6 +578,21 @@ fun LauncherScreen(
                         }
                     }
                 }
+                .hiddenAppsSpreadGesture(
+                    isHome = (currentNavState == LauncherNavState.Home && hiddenAppsFlowState == HiddenAppsFlowState.Closed),
+                    isWidgetEditMode = currentWidgetEditMode,
+                    hasPendingThemeProposal = (pendingThemeProposalUri != null),
+                    isUnlockPending = isUnlockPending,
+                    currentWidgetBoundsList = getCurrentWidgetBounds,
+                    onSpreadTriggered = {
+                        if (state.hiddenAppsConfig.isConfigured && state.hiddenAppsConfig.authMode != HiddenAppsAuthMode.NONE) {
+                            isHiddenAppsAuthenticated = false
+                            hiddenAppsFlowState = HiddenAppsFlowState.Authenticating
+                        } else {
+                            hiddenAppsFlowState = HiddenAppsFlowState.Setup
+                        }
+                    }
+                )
         ) { page ->
             // Transición suave por barrido horizontal sin parpadeos negros (calculada en draw phase, sin recomposiciones)
             val modifier = Modifier.graphicsLayer {
@@ -1041,6 +1121,101 @@ fun LauncherScreen(
                 }
             )
         }
+
+        // --- Hidden Apps Flow: Pantalla protegida, Diálogo de autenticación y Diálogo de configuración ---
+        // Configuración de idioma interno de NovaLauncher para Apps Ocultas (HALLAZGO 5)
+        val hiddenAppsLocale = remember(state.language) {
+            if (state.language == "es") java.util.Locale.forLanguageTag("es-ES") else java.util.Locale.ENGLISH
+        }
+        val currentConfiguration = LocalConfiguration.current
+        val hiddenAppsConfiguration = remember(hiddenAppsLocale, currentConfiguration) {
+            android.content.res.Configuration(currentConfiguration).apply {
+                setLocale(hiddenAppsLocale)
+            }
+        }
+        val hiddenAppsConfigContext = remember(hiddenAppsLocale, hiddenAppsConfiguration, context) {
+            context.createConfigurationContext(hiddenAppsConfiguration)
+        }
+
+        // activity-compose 1.9.0: LocalActivityResultRegistryOwner/LocalOnBackPressedDispatcherOwner
+        // se resuelven desenrollando LocalContext en busca de la Activity. El contexto de
+        // configuración provisto abajo no es ContextWrapper y las oculta → crash de los
+        // diálogos de Hidden Apps (registro de launchers) y Back muerto en HiddenAppsScreen.
+        val hiddenAppsActivityLocals = listOfNotNull(
+            (context as? ActivityResultRegistryOwner)?.let { LocalActivityResultRegistryOwner provides it },
+            (context as? OnBackPressedDispatcherOwner)?.let { LocalOnBackPressedDispatcherOwner provides it }
+        )
+        CompositionLocalProvider(
+            LocalContext provides hiddenAppsConfigContext,
+            LocalConfiguration provides hiddenAppsConfiguration,
+            *hiddenAppsActivityLocals.toTypedArray()
+        ) {
+            if (hiddenAppsFlowState == HiddenAppsFlowState.Visible && isHiddenAppsAuthenticated) {
+                HiddenAppsScreen(
+                    installedApps = installedApps,
+                    hiddenConfig = state.hiddenAppsConfig,
+                    onHideApp = { pkg -> viewModel.hideApp(pkg) },
+                    onUnhideApp = { pkg -> viewModel.unhideApp(pkg) },
+                    onChangeAuthMethod = {
+                        hiddenAppsFlowState = HiddenAppsFlowState.Setup
+                    },
+                    onResetProtection = {
+                        viewModel.clearHiddenAppsConfiguration()
+                        isHiddenAppsAuthenticated = false
+                        hiddenAppsFlowState = HiddenAppsFlowState.Closed
+                    },
+                    onClose = {
+                        isHiddenAppsAuthenticated = false
+                        hiddenAppsFlowState = HiddenAppsFlowState.Closed
+                    }
+                )
+            }
+
+            if (hiddenAppsFlowState == HiddenAppsFlowState.Authenticating) {
+                HiddenAppsAuthDialog(
+                    authMode = state.hiddenAppsConfig.authMode,
+                    authenticator = hiddenAppsAuthenticator,
+                    credentialStore = viewModel.hiddenAppsRepository.credentialVault,
+                    deviceCredentialLauncher = hiddenAppsDeviceCredentialLauncher,
+                    resetDeviceCredentialLauncher = hiddenAppsResetCredentialLauncher,
+                    credentialResultSink = hiddenAuthCredentialResult,
+                    resetResultSink = hiddenResetCredentialResult,
+                    onAuthenticated = {
+                        isHiddenAppsAuthenticated = true
+                        hiddenAppsFlowState = HiddenAppsFlowState.Visible
+                    },
+                    onResetRequested = {
+                        viewModel.clearHiddenAppsConfiguration()
+                        isHiddenAppsAuthenticated = false
+                        hiddenAppsFlowState = HiddenAppsFlowState.Closed
+                    },
+                    onDismiss = {
+                        isHiddenAppsAuthenticated = false
+                        hiddenAppsFlowState = HiddenAppsFlowState.Closed
+                    }
+                )
+            }
+
+            if (hiddenAppsFlowState == HiddenAppsFlowState.Setup) {
+                HiddenAppsSetupDialog(
+                    authenticator = hiddenAppsAuthenticator,
+                    repository = viewModel.hiddenAppsRepository,
+                    isChangingMethod = state.hiddenAppsConfig.isConfigured,
+                    onConfigured = { _ ->
+                        isHiddenAppsAuthenticated = false
+                        hiddenAppsFlowState = HiddenAppsFlowState.Authenticating
+                    },
+                    onDismiss = {
+                        if (state.hiddenAppsConfig.isConfigured && isHiddenAppsAuthenticated) {
+                            hiddenAppsFlowState = HiddenAppsFlowState.Visible
+                        } else {
+                            isHiddenAppsAuthenticated = false
+                            hiddenAppsFlowState = HiddenAppsFlowState.Closed
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -1062,14 +1237,6 @@ fun openNotificationsWithFallback(
                 if (language == "es") "Activa el Servicio de Accesibilidad para abrir notificaciones" else "Enable Accessibility Service to open notifications",
                 Toast.LENGTH_LONG
             ).show()
-            try {
-                val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
         }
     }
 }

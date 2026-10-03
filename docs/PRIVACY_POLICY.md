@@ -1,7 +1,7 @@
 # Política de Privacidad de NovaLauncher
 
-**Última actualización:** 17 de septiembre de 2026  
-**Versión de la aplicación:** 1.4  
+**Última actualización:** 27 de septiembre de 2026
+**Versión de la aplicación:** 1.6
 **Identificador de paquete (Package ID):** `com.daybreak.animelauncher`
 
 ---
@@ -92,14 +92,27 @@ Cuando usted configura un fondo visual en NovaLauncher, la aplicación puede int
 
 ---
 
-## 8. Conectividad, Red y Servicios Externos
+## 8. Funcionalidad de Apps Ocultas (Hidden Apps)
+
+NovaLauncher incluye la funcionalidad opcional de Apps ocultas para permitir organizar y restringir la visibilidad de aplicaciones instaladas en el cajón de aplicaciones (App Drawer) y sus resultados de búsqueda:
+
+- **Procesamiento 100% local:** Todo el procesamiento y la lógica de autenticación y validación se ejecuta de forma estrictamente local en el dispositivo.
+- **Almacenamiento local del estado:** La lista de aplicaciones seleccionadas como ocultas (identificadores `packageName` y su estado de visibilidad) se almacena única y exclusivamente de forma local en el almacenamiento privado de la aplicación en su dispositivo (`LauncherState`).
+- **Credenciales propias sin texto plano:** Cuando se utilizan credenciales propias de NovaLauncher (PIN, patrón o contraseña), estas nunca se almacenan en texto plano; se procesan en el dispositivo mediante derivación criptográfica PBKDF2 (`PBKDF2WithHmacSHA256`) con salt aleatorio y se protegen mediante cifrado por hardware en `Android Keystore` (AES-GCM). El almacén cifrado está excluido de copias de seguridad en la nube y transferencias de dispositivo.
+- **Cero transmisión de credenciales y material criptográfico:** Las credenciales, contraseñas, hashes, sales y material criptográfico nunca se transmiten fuera del dispositivo bajo ninguna circunstancia.
+- **Sin servidores ni telemetría:** No se agregan servidores remotos, bases de datos en la nube, backends de autenticación ni herramientas de telemetría o analítica para esta función.
+- **Autenticación biométrica delegada:** Cuando se utiliza la autenticación biométrica (huella dactilar o reconocimiento facial), NovaLauncher delega el proceso completamente a la API oficial de Android (`BiometricPrompt` / `androidx.biometric`). La aplicación **no recopila**, **no almacena** y **no tiene acceso** a plantillas biométricas, datos biométricos en bruto ni información identificativa del hardware biométrico; únicamente recibe la confirmación de éxito o fallo emitida por el sistema.
+
+---
+
+## 9. Conectividad, Red y Servicios Externos
 
 De acuerdo con la auditoría técnica del código fuente de NovaLauncher:
 - **Sin servidores propios:** No existen servidores, APIs REST, servicios web ni infraestructura de backend conectados a la aplicación.
 - **Sin servicios de analítica:** No se utilizan herramientas de análisis de uso o telemetría (no se incluye Google Analytics, Firebase Analytics, Flurry, Mixpanel ni similares).
 - **Sin servicios de reporte de fallos:** No se incluyen SDKs de crash reporting como Firebase Crashlytics, Sentry o Bugsnag.
 - **Sin publicidad ni monetización:** La aplicación no incluye bibliotecas de anuncios (AdMob, Unity Ads, etc.) ni rastreadores publicitarios.
-- **Librerías externas utilizadas:** Las dependencias de terceros presentes en la aplicación (Jetpack Compose, Coil, Gson y AndroidX Media3 ExoPlayer) se emplean exclusivamente para renderizado gráfico, serialización local en almacenamiento privado y reproducción local de video sin emitir telemetría externa.
+- **Librerías externas utilizadas:** Las dependencias de terceros presentes en la aplicación (Jetpack Compose, Coil, Gson, AndroidX Media3 ExoPlayer, androidx.palette:palette-ktx, androidx.navigation:navigation-compose y androidx.biometric:biometric) se emplean exclusivamente para renderizado gráfico, serialización local en almacenamiento privado, soporte de temas adaptativos, navegación, autenticación delegada al sistema y reproducción local de video sin emitir telemetría externa.
 
 ---
 
@@ -133,5 +146,5 @@ Podemos actualizar esta Política de Privacidad periódicamente si se modifican 
 
 Si tiene preguntas, inquietudes o comentarios sobre esta Política de Privacidad o las prácticas de NovaLauncher, puede ponerse en contacto con el desarrollador a través de:
 
-**Correo electrónico:** `[CORREO DE CONTACTO DEL DESARROLLADOR]`  
+**Correo electrónico:** `dbreak472@gmail.com`
 **Aplicación:** NovaLauncher (`com.daybreak.animelauncher`)

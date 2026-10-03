@@ -35,6 +35,7 @@ object VideoWallpaperManager {
         var currentUriKey: String? = null
         var isSurfaceBound: Boolean = false
         var hasRenderedSinceLastBind: Boolean = false
+        var consecutiveErrorRetries: Int = 0
         var watchdogJob: Job? = null
     }
 
@@ -51,6 +52,41 @@ object VideoWallpaperManager {
 
     private val pageBindings = HashMap<Int, PageBinding>()
     private val savedPositions = HashMap<String, Long>()
+    private val verifiedAccessibleUris = HashSet<String>()
+    private val knownInaccessibleUris = HashSet<String>()
+
+    fun invalidateUriCache(uriString: String? = null) {
+        if (uriString != null) {
+            verifiedAccessibleUris.remove(uriString)
+            knownInaccessibleUris.remove(uriString)
+        } else {
+            verifiedAccessibleUris.clear()
+            knownInaccessibleUris.clear()
+        }
+    }
+
+    private fun isUriAccessible(context: Context, uriString: String): Boolean {
+        if (uriString.startsWith("android.resource://")) return true
+        if (verifiedAccessibleUris.contains(uriString)) return true
+        if (knownInaccessibleUris.contains(uriString)) return false
+
+        val uri = try { Uri.parse(uriString) } catch (_: Exception) { return false }
+        if (uri.scheme != "content") return true
+
+        return try {
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { true } ?: false
+        } catch (e: SecurityException) {
+            knownInaccessibleUris.add(uriString)
+            false
+        } catch (e: Exception) {
+            knownInaccessibleUris.add(uriString)
+            false
+        }.also { accessible ->
+            if (accessible) {
+                verifiedAccessibleUris.add(uriString)
+            }
+        }
+    }
 
     private var appContext: Context? = null
     private var currentPageIndex = 0
@@ -73,6 +109,7 @@ object VideoWallpaperManager {
             .apply {
                 repeatMode = Player.REPEAT_MODE_ONE
                 volume = 0f
+                videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
                 trackSelectionParameters = trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
                     .build()
@@ -82,18 +119,50 @@ object VideoWallpaperManager {
                         val slot = slotGetter()
                         if (slot != null) {
                             slot.hasRenderedSinceLastBind = true
+                            slot.consecutiveErrorRetries = 0
                             slot.watchdogJob?.cancel()
                             slot.watchdogJob = null
                         }
                     }
 
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY) {
+                            slotGetter()?.consecutiveErrorRetries = 0
+                        }
+                    }
+
                     override fun onPlayerError(error: PlaybackException) {
-                        if (isAppForeground) {
-                            try {
-                                prepare()
-                                playWhenReady = true
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                        if (!isAppForeground) return
+                        val slot = slotGetter() ?: return
+                        val isExternalUri = slot.currentUriKey?.startsWith("android.resource") != true
+                        if (isExternalUri) {
+                            slot.currentUriKey?.let { knownInaccessibleUris.add(it) }
+                            val page = slot.assignedPage
+                            val ctx = appContext
+                            val binding = page?.let { pageBindings[it] }
+                            if (binding != null && ctx != null) {
+                                val fallbackUri = "android.resource://${ctx.packageName}/${binding.rawResId}"
+                                slot.currentUriKey = fallbackUri
+                                slot.consecutiveErrorRetries = 0
+                                slot.player.setMediaItem(MediaItem.fromUri(Uri.parse(fallbackUri)))
+                                slot.player.prepare()
+                                slot.player.playWhenReady = isAppForeground
+                                return
+                            }
+                        }
+
+                        val attempt = slot.consecutiveErrorRetries + 1
+                        slot.consecutiveErrorRetries = attempt
+                        val delayMs = minOf(1000L shl (attempt - 1).coerceAtMost(4), 10_000L)
+                        managerScope.launch {
+                            delay(delayMs)
+                            if (isAppForeground && slotGetter() === slot) {
+                                try {
+                                    prepare()
+                                    playWhenReady = true
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             }
                         }
                     }
@@ -102,7 +171,7 @@ object VideoWallpaperManager {
     }
 
     private fun buildMediaUri(context: Context, @RawRes rawResId: Int, uriString: String?): Uri {
-        return if (!uriString.isNullOrBlank()) {
+        return if (!uriString.isNullOrBlank() && isUriAccessible(context, uriString)) {
             try {
                 Uri.parse(uriString)
             } catch (e: Exception) {
@@ -135,6 +204,13 @@ object VideoWallpaperManager {
     ) {
         appContext = playerView.context.applicationContext
         ensureSlots(playerView.context)
+        // La transición del NavHost compone brevemente dos destinos: Settings/AdvancedSettings y
+        // la página 0 del launcher comparten pageIndex=0. Desvincular la vista saliente para que
+        // un mismo ExoPlayer no quede referenciado por dos PlayerViews (frame negro/congelado).
+        val existing = pageBindings[pageIndex]
+        if (existing != null && existing.playerView !== playerView) {
+            existing.playerView.player = null
+        }
         pageBindings[pageIndex] = PageBinding(playerView, rawResId, videoUri)
         syncSlots(playerView.context)
     }
@@ -191,37 +267,59 @@ object VideoWallpaperManager {
      * - Target 2: Página contigua inmediata (pre-buffering del primer frame).
      */
     @Synchronized
-    private fun syncSlots(context: Context) {
-        ensureSlots(context)
-        val sA = slotA ?: return
-        val sB = slotB ?: return
+    fun onPageScrolled(currentPage: Int, targetPage: Int, offsetFraction: Float, context: Context? = null) {
+        val ctx = context ?: appContext ?: return
+        currentPageIndex = currentPage
 
-        val target1 = currentPageIndex
-        val target2 = if (pageBindings.containsKey(currentPageIndex + 1)) {
+        val desiredTarget = if (offsetFraction > 0.02f) {
+            currentPage + 1
+        } else if (offsetFraction < -0.02f) {
+            currentPage - 1
+        } else if (targetPage != currentPage) {
+            targetPage
+        } else {
+            if (pageBindings.containsKey(currentPage + 1)) currentPage + 1 else currentPage - 1
+        }
+
+        syncSlotsInternal(ctx, primaryTarget = currentPage, secondaryTarget = desiredTarget)
+    }
+
+
+    @Synchronized
+    private fun syncSlots(context: Context) {
+        val nextTarget = if (pageBindings.containsKey(currentPageIndex + 1)) {
             currentPageIndex + 1
         } else if (currentPageIndex > 0 && pageBindings.containsKey(currentPageIndex - 1)) {
             currentPageIndex - 1
         } else {
             null
         }
+        syncSlotsInternal(context, primaryTarget = currentPageIndex, secondaryTarget = nextTarget)
+    }
 
-        val targetPages = listOfNotNull(target1, target2).filter { pageBindings.containsKey(it) }
+    @Synchronized
+    private fun syncSlotsInternal(context: Context, primaryTarget: Int, secondaryTarget: Int?) {
+        ensureSlots(context)
+        val sA = slotA ?: return
+        val sB = slotB ?: return
+
+        val targetPages = listOfNotNull(primaryTarget, secondaryTarget).filter { pageBindings.containsKey(it) }
         val slots = listOf(sA, sB)
 
         for (target in targetPages) {
             val slot = slots.firstOrNull { it.assignedPage == target }
             if (slot != null) {
-                // BUG 1 (Punto 4): La página ya está asignada a este slot. Comprobar si el recurso cambió
                 val binding = pageBindings[target]
                 if (binding != null) {
                     val mediaUri = buildMediaUri(context, binding.rawResId, binding.videoUri)
                     val uriKey = mediaUri.toString()
-                    if (slot.currentUriKey != uriKey || binding.playerView.player !== slot.player) {
+                    val uriMismatch = slot.currentUriKey != uriKey
+                    val playerMismatch = binding.playerView.player !== slot.player
+                    if (uriMismatch || playerMismatch) {
                         assignSlotToPage(context, slot, target)
                     }
                 }
             } else {
-                // Asignar un slot libre a este objetivo
                 val freeSlot = slots.firstOrNull { it.assignedPage !in targetPages }
                 if (freeSlot != null) {
                     assignSlotToPage(context, freeSlot, target)
@@ -277,14 +375,11 @@ object VideoWallpaperManager {
 
         slot.assignedPage = page
 
-        // Desvincular primero si PlayerView ya apuntaba a este u otro player para forzar
-        // a PlayerView a re-adjuntar su TextureView/Surface al slot.player
-        if (binding.playerView.player === slot.player) {
-            binding.playerView.player = null
+        if (binding.playerView.player !== slot.player) {
+            binding.playerView.player = slot.player
+            slot.isSurfaceBound = true
+            slot.hasRenderedSinceLastBind = false
         }
-        binding.playerView.player = slot.player
-        slot.isSurfaceBound = true
-        slot.hasRenderedSinceLastBind = false
 
         val mediaUri = buildMediaUri(context, binding.rawResId, binding.videoUri)
         val uriKey = mediaUri.toString()

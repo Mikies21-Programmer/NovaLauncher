@@ -29,18 +29,6 @@ class LauncherAccessibilityService : AccessibilityService() {
         fun openNotifications(): Boolean {
             return instance?.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS) ?: false
         }
-
-        fun goBack(): Boolean {
-            return instance?.performGlobalAction(GLOBAL_ACTION_BACK) ?: false
-        }
-
-        fun openRecents(): Boolean {
-            return instance?.performGlobalAction(GLOBAL_ACTION_RECENTS) ?: false
-        }
-
-        fun goHome(): Boolean {
-            return instance?.performGlobalAction(GLOBAL_ACTION_HOME) ?: false
-        }
     }
 
     override fun onServiceConnected() {

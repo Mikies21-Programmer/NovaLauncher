@@ -5,15 +5,10 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- El material criptográfico depende de claves locales en Android Keystore específicas del dispositivo y no debe restaurarse en otro dispositivo -->
+        <exclude domain="sharedpref" path="nova_hidden_apps_vault.xml" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="nova_hidden_apps_vault.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>

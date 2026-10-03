@@ -1,0 +1,25 @@
+# NovaLauncher Baseline Profile (PERF-OPT-3, 2026-10-02)
+# Grano de clase para el camino crítico de arranque (Application/Activity/Compose first frame).
+# Generación automática con BaselineProfileRule bloqueada por consentimiento de instalación
+# de HyperOS (INSTALL_FAILED_VERIFICATION_FAILURE); regenerar method-grain cuando el dev
+# pueda confirmar los diálogos de instalación en el teléfono.
+Lcom/daybreak/animelauncher/MainActivity;
+Lcom/daybreak/animelauncher/LauncherViewModel;
+Lcom/daybreak/animelauncher/LauncherStateKt;
+Lcom/daybreak/animelauncher/LauncherNavState;
+Lcom/daybreak/animelauncher/AppShortcut;
+Lcom/daybreak/animelauncher/hiddenapps/HiddenAppsFlowState;
+Lcom/daybreak/animelauncher/hiddenapps/HiddenAppsAuthenticator;
+Lcom/daybreak/animelauncher/hiddenapps/HiddenAppsRepository;
+Lcom/daybreak/animelauncher/hiddenapps/HiddenAppsCredentialStore;
+Lcom/daybreak/animelauncher/hiddenapps/HiddenAppsCrypto;
+Lcom/daybreak/animelauncher/theming/LauncherThemeTokens;
+Lcom/daybreak/animelauncher/theming/LocalLauncherThemeTokens;
+Lcom/daybreak/animelauncher/ui/screens/LauncherScreenKt;
+Lcom/daybreak/animelauncher/ui/screens/ViewOneKt;
+Lcom/daybreak/animelauncher/ui/screens/ViewTwoKt;
+Lcom/daybreak/animelauncher/ui/components/VideoWallpaperManager;
+Lcom/daybreak/animelauncher/ui/components/VideoBackgroundKt;
+Lcom/daybreak/animelauncher/ui/components/DynamicBackgroundKt;
+Lcom/daybreak/animelauncher/widget/WidgetHostManager;
+Lcom/daybreak/animelauncher/widget/NativeWidgetView;

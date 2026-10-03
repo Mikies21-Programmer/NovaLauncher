@@ -1,7 +1,7 @@
 # Estado Persistente del Proyecto — NovaLauncher (Agent State)
 
 > **Documento maestro de sincronización, continuidad operativa y auditoría entre sesiones, Antigravity y Claude.**<br>
-> *Última actualización: 20 de septiembre de 2026 (Cierre P2-03 EXP-PAGER-ZERO-PRELOAD — Performance Engineering).*<br>
+> *Última actualización: 27 de septiembre de 2026 (Cierre HIDDEN-APPS-FIX-01 — Hardening & Validación Técnica).*<br>
 > *Regla de seguridad estricta: CERO secretos, contraseñas, keystores ni claves privadas en este repositorio.*
 
 ---
@@ -11,7 +11,7 @@
 * **Repositorio Principal:** `Mikies21-Programmer/NovaLauncher`
 * **Directorio Local:** `C:\Users\migue\AndroidStudioProjects\AnimeLauncher`
 * **Application ID:** `com.daybreak.animelauncher`
-* **Versión Actual:** `versionCode = 6`, `versionName = "1.4"`
+* **Versión Actual:** `versionCode = 8`, `versionName = "1.6"`
 * **SDKs:** `minSdk = 24`, `targetSdk = 36`, `compileSdk = 36`
 * **Política de Privacidad Pública:** `https://mikies21-programmer.github.io/NovaLauncher-Privacy/`
 * **Contacto Oficial:** `dbreak472@gmail.com`
@@ -19,6 +19,16 @@
 ---
 
 ## 2. Estado Oficial de Módulos y Fases
+
+### Tabla de Estado Oficial de Apps Ocultas (Hidden Apps)
+
+| Fase | Alcance Técnico | Estado Oficial |
+| :--- | :--- | :---: |
+| **HIDDEN-APPS-AUDIT-01** | Auditoría estática integral de arquitectura, seguridad y flujos | ✅ **COMPLETADA** |
+| **HIDDEN-APPS-IMPLEMENTATION-01** | Implementación completa (Gesto spread, Bóveda Keystore, Auth, UI, Drawer) | ✅ **COMPLETADA** |
+| **HIDDEN-APPS-FIX-01** | Cierre de bypass de reset, FLAG_SECURE total, timeout 60s, density dp en gesto, exclusión mutua de gestos, sincronización de idioma, hardening de sesión y tests | ✅ **COMPLETADA / AUTOMATIZACIÓN VALIDADA / PENDIENTE VALIDACIÓN FÍSICA** |
+
+---
 
 ### Tabla de Estado Oficial de Performance Engineering
 
@@ -149,7 +159,43 @@
 
 ---
 
-## 4. Decisiones de Producto Consolidadas
+## 4. Arquitectura y Seguridad de Apps Ocultas (Hidden Apps)
+
+Apps Ocultas (`HIDDEN-APPS-FIX-01`) proporciona una bóveda privada local para ocultar aplicaciones seleccionadas del App Drawer, el rail A-Z, las categorías y los resultados de búsqueda, con aislamiento criptográfico y fail-closed de sesión:
+
+1. **`HiddenAppsModels.kt`:** Modelos de datos inmutables y enums para modos de autenticación (`NONE`, `BIOMETRIC`, `DEVICE_CREDENTIAL`, `OWN_PIN`, `OWN_PATTERN`, `OWN_PASSWORD`), estados de flujo de UI (`Closed`, `Setup`, `Auth`, `AuthenticatedScreen`) y estado de configuración (`HiddenAppsConfig`).
+2. **`HiddenAppsCrypto.kt`:** Derivación criptográfica mediante PBKDF2WithHmacSHA256 con salt criptográfico de 16 bytes (`SecureRandom`), 120,000 iteraciones, comparación en tiempo constante (`MessageDigest.isEqual`), validadores estrictos y sanitización en memoria (`wipe`).
+3. **`HiddenAppsCredentialStore.kt`:** Cifrado por hardware en `AndroidKeyStore` con clave simétrica AES-GCM (256 bits, `NoPadding`) y persistencia del ciphertext e IV en un archivo SharedPreferences exclusivo (`nova_hidden_apps_vault.xml`), excluido formalmente de backups en la nube y transferencias de dispositivo.
+4. **`HiddenAppsAuthenticator.kt`:** Coordinador de verificación de credenciales con cooldown de 30 segundos tras 5 intentos fallidos consecutivos, soporte para `BiometricPrompt` (`BIOMETRIC_STRONG`) y credenciales del dispositivo (`createConfirmDeviceCredentialIntent`).
+5. **`HiddenAppsRepository.kt`:** Repositorio central que coordina la persistencia del estado en `LauncherState` y las credenciales en `HiddenAppsCredentialStore`. Incorpora `verifyAndReset()` para eliminar cualquier camino de bypass de reset.
+6. **`HiddenAppsGesture.kt`:** Detector táctil multitáctil de 2 dedos (separación hacia afuera) con zona central geométrica (35%), zoom trigger >= 1.45x, escala inicial dependiente de densidad (`MIN_INITIAL_DISTANCE_DP = 24f`) y exclusión de gestos consumidos.
+7. **`HiddenAppsScreen.kt`:** Pantalla modal autenticada con `FLAG_SECURE` en la ventana, filtrado por pestañas ("Todas" / "Ocultas"), búsqueda en vivo, auto-cierre tras 60 segundos de inactividad táctil (`PointerEventPass.Initial`) y diálogo de confirmación de reseteo.
+8. **`HiddenAppsAuthDialog.kt` & `HiddenAppsSetupDialog.kt`:** Modales seguros con `SecureFlagPolicy.SecureOn` y `FLAG_SECURE` en la Activity Window. El flujo de reseteo exige de forma obligatoria la credencial Nova actualmente configurada o credencial segura del dispositivo (prohibido reset sin autenticación cuando `isDeviceSecure == false`).
+9. **Integración con `AppDrawerScreen.kt`:** Filtrado de `hiddenPackages` antes de `prepareDrawerCategory(appsInCat)`, garantizando desaparición completa del Drawer, A-Z y búsqueda, preservando al 100% las guardas de `CRASH-FIX-01`.
+
+### Decisiones de Arquitectura y Seguridad Consolidadas (HIDDEN-APPS-FIX-01)
+* **A) Reset Protegido (Eliminación de Bypass):** El reseteo de protección nunca puede ejecutarse sin autenticación. En dispositivos sin bloqueo del sistema (`isDeviceSecure == false`), se exige estrictamente la credencial Nova (`OWN_PIN`, `OWN_PATTERN`, `OWN_PASSWORD`) mediante `verifyAndReset()`. Un reseteo cancelado o con credencial errónea jamás altera la configuración ni revela paquetes.
+* **B) FLAG_SECURE Completo:** Aplicado mediante `SecureFlagPolicy.SecureOn` y en la ventana de la Activity a `HiddenAppsSetupDialog`, `HiddenAppsAuthDialog` y `HiddenAppsScreen`, impidiendo capturas de pantalla, grabaciones y previsualizaciones en multitarea durante todo el ciclo sensible.
+* **C) Auto-Cierre por Inactividad (60 segundos):** En `HiddenAppsScreen` autenticada, un temporizador de 60 segundos descarta la sesión y vuelve a `Closed` si no hay actividad táctil. Cualquier toque en pantalla (`PointerEventPass.Initial`) reinicia el contador.
+* **D) Consistencia de Idioma:** Las pantallas y modales de Apps Ocultas se envuelven en `CompositionLocalProvider(LocalContext, LocalConfiguration)` configurado con `Locale.forLanguageTag(state.language)`, respondiendo instantáneamente al toggle de idioma interno de NovaLauncher ("es" / "en").
+* **E) Sin Acceso Alternativo (Descubrimiento Único por Gesto):** No se añaden accesos en Settings, widgets, iconos ni destinos NavHost. El gesto spread outward es la única vía de acceso.
+* **F) Exclusión Mutua de Gestos:** `LauncherScreen.kt` comprueba `hiddenAppsFlowState == Closed` antes de disparar el pinch-in de Settings, y `HiddenAppsGesture.kt` descarta punteros consumidos, impidiendo que una secuencia multitáctil continua dispare consecutivamente ambos flujos.
+
+---
+
+## 5. Tabla Oficial de Gestos del Sistema (Home Screen Gestures)
+
+| Gesto | Punteros y Región | Acción / Resultado | Componente Destino | Inhibidores / Exclusiones |
+| :--- | :--- | :--- | :--- | :--- |
+| **Doble Toque (Double Tap)** | 1 dedo, área vacía del escritorio | Bloquear / Apagar pantalla | `LauncherAccessibilityService` (`GLOBAL_ACTION_LOCK_SCREEN`) | Área de widgets, iconos de apps, modo edición |
+| **Deslizar Abajo (Swipe Down)** | 1 dedo, arrastre vertical hacia abajo | Expandir panel de notificaciones | `LauncherAccessibilityService` (`GLOBAL_ACTION_NOTIFICATIONS`) | Área de widgets, inicio sobre iconos, modo edición |
+| **Deslizar Arriba (Swipe Up)** | 1 dedo, arrastre vertical hacia arriba | Desplegar App Drawer | `AppDrawerScreen` | Área de widgets, modo edición |
+| **Pellizcar hacia Adentro (Pinch In)** | 2 dedos, contracción (zoom < 0.75x) | Abrir Ajustes de NovaLauncher | `SettingsScreen` | Modo edición de widgets, inicio en widgets, Apps Ocultas activa |
+| **Separación hacia Afuera (Spread Outward)** | 2 dedos, inicio en zona central 35%, separación >= 1.45x, distancia inicial >= 24dp | Abrir flujo protegido de Apps Ocultas | `HiddenAppsScreen` / Diálogos Setup/Auth | Modo edición de widgets, overlays activos, inicio en widgets, pinch en curso, sesión ya abierta |
+
+---
+
+## 6. Decisiones de Producto Consolidadas (Theming y Sistema)
 
 * **A) Propuesta Opcional:** Adaptive Theming es una sugerencia opcional; el usuario siempre puede aplicar el fondo sin adoptar el tema.
 * **B) Labels Semánticos:** Etiquetas universales `Dominante`, `Vibrante`, `Equilibrado` (cero marketing artificial).
@@ -417,18 +463,34 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 ## 10. Validaciones Automatizadas Consolidadas
 
 * `git diff --check`: **PASS** (0 errores de formato, fin de línea o sintaxis).
-* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (**62/62 pruebas unitarias aprobadas al 100%**).
-* `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado e instalado exitosamente en POCO X6).
+* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (**107/107 pruebas unitarias aprobadas al 100%**: 62 suite base + 45 suite Apps Ocultas).
+* `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado).
 * `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores).
-* `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Minificación R8 y `lintVitalRelease` exitosos; AAB generado).
+* `.\gradlew.bat lintVitalRelease`: **BUILD SUCCESSFUL** (0 errores, 0 advertencias).
+* `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Minificación R8 y AAB generado en `app/build/outputs/bundle/release/app-release.aab`).
 * Suite de Benchmarks en Hardware Físico (`POCO X6 5G`): **PASS** (`StartupBenchmark` + `DrawerFrameBenchmark`).
 
 ---
 
 ## 11. Tareas Pendientes y Hoja de Ruta
 
-1. **Performance Engineering — Fase P2-04 (Composición / Layout):** Auditoría técnica y selección del próximo experimento A/B de optimización sobre los hotspots de composición restantes.
-2. **Estabilización de Video Resume (Independiente):** Diagnóstico y corrección de la re-vinculación de `TextureView` en `VideoWallpaperManager` al regresar de apps pesadas.
-3. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
-4. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.
-5. **Accesibilidad y Ficha de Tienda:** Preparar video demostrativo de accesibilidad para Play Console y activos gráficos finales.
+1. **Validación Física en Hardware Real (POCO X6 5G):** Ejecución del checklist físico de Apps Ocultas por parte del desarrollador (gesto spread, biometría, PIN/patrón/pass, reset seguro, timeout 60s, FLAG_SECURE).
+2. **Performance Engineering — Fase P2-04 (Composición / Layout):** Auditoría técnica y selección del próximo experimento A/B de optimización sobre los hotspots de composición restantes.
+3. **Estabilización de Video Resume (Independiente):** Diagnóstico y corrección de la re-vinculación de `TextureView` en `VideoWallpaperManager` al regresar de apps pesadas.
+4. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
+5. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.
+6. **Accesibilidad y Ficha de Tienda:** Preparar video demostrativo de accesibilidad para Play Console y activos gráficos finales.
+
+---
+
+## 12. Registro de Versiones y Changelog
+
+### Versión 1.6 (versionCode = 8) — 27 de septiembre de 2026
+* **Cierre y Hardening de Apps Ocultas (HIDDEN-APPS-FIX-01):**
+  - **Eliminación del Bypass de Reseteo:** Corrección crítica en `HiddenAppsAuthDialog` y `HiddenAppsRepository.verifyAndReset()`. En dispositivos sin bloqueo seguro del sistema (`isDeviceSecure == false`), el restablecimiento exige obligatoriamente la credencial Nova activa (`OWN_PIN`, `OWN_PATTERN`, `OWN_PASSWORD`), bloqueando cualquier reseteo no autenticado.
+  - **Protección Visual Anti-Espía (FLAG_SECURE):** Cobertura exhaustiva con `SecureFlagPolicy.SecureOn` y flag de ventana en `HiddenAppsSetupDialog`, `HiddenAppsAuthDialog` y `HiddenAppsScreen` durante la captura de secretos.
+  - **Auto-Cierre por Inactividad:** Cierre fail-closed automático tras 60 segundos sin actividad en la pantalla protegida autenticada, reiniciado con cualquier interacción táctil (`PointerEventPass.Initial`).
+  - **Gesto de Separación Adaptativo:** Sustitución de umbral rígido por distancia inicial escalada por densidad (`MIN_INITIAL_DISTANCE_DP = 24f`), con comprobación de punteros consumidos.
+  - **Exclusión Mutua de Gestos:** Prevención de disparo consecutivo e involuntario entre Pinch-in (Settings) y Spread (Apps Ocultas).
+  - **Sincronización de Idioma Interno:** Interfaz de Apps Ocultas reactiva al toggle de idioma `state.language` ("es" / "en") mediante `CompositionLocalProvider`.
+  - **Validación Automatizada de Seguridad:** Incorporación de 7 pruebas obligatorias de seguridad en `HiddenAppsAuthTest` y 2 pruebas de robustez en `HiddenAppsGestureLogicTest`, alcanzando 107/107 tests unitarios aprobados.

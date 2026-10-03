@@ -16,7 +16,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR,LOW-BATTERY,UNLOCKED"
-        testInstrumentationRunnerArguments["androidx.benchmark.fullTracing.enable"] = "true"
+        // PERF: fullTracing.enable retirado (instrumentación P2-02C). Sin el binario
+        // libtracing_perfetto desplegado a mano rompe startupColdMacrobenchmark.
     }
 
     buildTypes {

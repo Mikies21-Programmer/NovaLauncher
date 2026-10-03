@@ -119,7 +119,7 @@
 <!-- Política de Privacidad -->
 <div id="privacy" class="legal-content active legal-section">
     <h1>Política de <span class="gradient-text">Privacidad</span></h1>
-    <p style="text-align: center;"><strong>Última actualización: 17 de septiembre de 2026</strong> | Versión 1.4 (<code>com.daybreak.animelauncher</code>)</p>
+    <p style="text-align: center;"><strong>Última actualización: 27 de septiembre de 2026</strong> | Versión 1.6 (<code>com.daybreak.animelauncher</code>)</p>
     
     <div class="glass-panel glass-card-content">
         <h2>1. Identificación y Filosofía</h2>
@@ -147,11 +147,22 @@
         <h2>5. Medios, Fondos e Iconos</h2>
         <p>Se utiliza el Storage Access Framework (SAF) de Android mediante selectores del sistema. Solo se guarda el URI local con permisos de lectura. Las imágenes y videos nunca se envían fuera del dispositivo.</p>
 
-        <h2>6. Conectividad y Terceros</h2>
-        <p>NovaLauncher no cuenta con servidores externos, ni incluye SDKs de analítica (sin Google Analytics ni Firebase), ni crash reporting (sin Crashlytics ni Sentry), ni publicidad (sin AdMob ni redes publicitarias).</p>
+        <h2>6. Apps Ocultas (Hidden Apps)</h2>
+        <p>NovaLauncher incluye una función opcional para ocultar aplicaciones del cajón principal y de la búsqueda:</p>
+        <ul>
+            <li><strong>Procesamiento 100% local:</strong> Todo el procesamiento, lógica de autenticación y validación se realiza exclusivamente de forma local en el dispositivo.</li>
+            <li><strong>Almacenamiento local del estado:</strong> La lista de aplicaciones seleccionadas como ocultas (identificadores <code>packageName</code> y su estado de visibilidad) se guarda únicamente de forma local en el almacenamiento privado de la aplicación (<code>LauncherState</code>).</li>
+            <li><strong>Credenciales propias sin texto plano:</strong> Las credenciales propias (PIN, patrón o contraseña) nunca se almacenan en texto plano; se procesan mediante derivación criptográfica PBKDF2 (con salt) y se protegen mediante cifrado AES-GCM con claves de hardware en Android Keystore, excluidas de copias de seguridad.</li>
+            <li><strong>Cero transmisión de credenciales o hashes:</strong> Las credenciales, contraseñas, hashes, sales y material criptográfico nunca se transmiten fuera del dispositivo.</li>
+            <li><strong>Sin servidores ni telemetría:</strong> No se agregan servidores de autenticación, almacenamiento en la nube, analíticas ni telemetría externa.</li>
+            <li><strong>Autenticación biométrica delegada:</strong> La autenticación biométrica se delega estrictamente a la API oficial de Android (<code>BiometricPrompt</code>). NovaLauncher no recibe ni almacena plantillas biométricas ni datos de huella o rostro.</li>
+        </ul>
 
-        <h2>7. Contacto</h2>
-        <p>Para consultas sobre privacidad, comuníquese con el desarrollador en: <code>[CORREO DE CONTACTO DEL DESARROLLADOR]</code></p>
+        <h2>7. Conectividad y Terceros</h2>
+        <p>NovaLauncher no cuenta con servidores externos, ni incluye SDKs de analítica (sin Google Analytics ni Firebase), ni crash reporting (sin Crashlytics ni Sentry), ni publicidad (sin AdMob ni redes publicitarias). Las dependencias externas (Jetpack Compose, Coil, Gson, ExoPlayer, androidx.palette:palette-ktx, androidx.navigation:navigation-compose y androidx.biometric:biometric) operan exclusivamente de forma local sin emitir telemetría.</p>
+
+        <h2>8. Contacto</h2>
+        <p>Para consultas sobre privacidad, comuníquese con el desarrollador en: <code>dbreak472@gmail.com</code></p>
     </div>
 </div>
 

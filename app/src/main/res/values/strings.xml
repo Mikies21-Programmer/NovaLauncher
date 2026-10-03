@@ -4,7 +4,7 @@
 
     <!-- Prominent Disclosure Strings (ES) -->
     <string name="accessibility_disclosure_title">Uso del Servicio de Accesibilidad</string>
-    <string name="accessibility_disclosure_message">NovaLauncher utiliza el Servicio de Accesibilidad exclusivamente para ejecutar acciones globales del sistema mediante gestos:\n\n• Doble toque: bloquear la pantalla.\n• Deslizar hacia abajo: abrir el panel de notificaciones.\n\nNovaLauncher no utiliza el servicio para leer el contenido de otras aplicaciones, extraer texto de la pantalla ni registrar o transmitir el contenido de eventos de accesibilidad.\n\nEstas funciones son opcionales y no estarán disponibles si el servicio permanece desactivado.</string>
+    <string name="accessibility_disclosure_message">NovaLauncher utiliza el Servicio de Accesibilidad exclusivamente para ejecutar acciones globales del sistema mediante gestos y accesos directos:\n\n• Doble toque: bloquear la pantalla.\n• Deslizar hacia abajo: abrir el panel de notificaciones.\n• Tocar el contador de mensajes: abrir el panel de notificaciones.\n\nNovaLauncher no utiliza el servicio para leer el contenido de otras aplicaciones, extraer texto de la pantalla ni registrar o transmitir el contenido de eventos de accesibilidad.\n\nEstas funciones son opcionales y el usuario debe aceptar esta divulgación antes de configurar el servicio en los ajustes del sistema.</string>
     <string name="accessibility_disclosure_accept">Aceptar y configurar</string>
     <string name="accessibility_disclosure_cancel">Ahora no</string>
 
@@ -21,4 +21,58 @@
     <string name="settings_privacy_policy_title">Política de Privacidad</string>
     <string name="settings_privacy_policy_desc">Consulta cómo NovaLauncher protege tus datos y privacidad</string>
     <string name="settings_privacy_policy_btn">Ver política</string>
+
+    <!-- Hidden Apps Strings (ES) -->
+    <string name="hidden_apps_title">Apps ocultas</string>
+    <string name="hidden_apps_setup_title">Configurar protección de Apps ocultas</string>
+    <string name="hidden_apps_setup_subtitle">Elige un método para proteger tus aplicaciones privadas</string>
+    <string name="hidden_apps_auth_biometric">Biometría segura</string>
+    <string name="hidden_apps_auth_biometric_desc">Usa tu huella dactilar o reconocimiento biométrico del sistema</string>
+    <string name="hidden_apps_auth_device">Credencial del dispositivo</string>
+    <string name="hidden_apps_auth_device_desc">PIN, patrón o contraseña del sistema Android</string>
+    <string name="hidden_apps_auth_pin">PIN Nova</string>
+    <string name="hidden_apps_auth_pin_desc">Código numérico propio de 6 a 12 dígitos</string>
+    <string name="hidden_apps_auth_pattern">Patrón Nova</string>
+    <string name="hidden_apps_auth_pattern_desc">Patrón propio en cuadrícula de al menos 4 puntos</string>
+    <string name="hidden_apps_auth_password">Contraseña Nova</string>
+    <string name="hidden_apps_auth_password_desc">Contraseña propia de 8 a 64 caracteres</string>
+    <string name="hidden_apps_empty_state_title">No hay apps ocultas</string>
+    <string name="hidden_apps_empty_state_desc">Las aplicaciones seleccionadas como ocultas no aparecerán en el App Drawer ni en búsquedas</string>
+    <string name="hidden_apps_enter_pin">Introduce tu PIN</string>
+    <string name="hidden_apps_confirm_pin">Confirma tu PIN</string>
+    <string name="hidden_apps_enter_pattern">Dibuja tu patrón</string>
+    <string name="hidden_apps_confirm_pattern">Confirma tu patrón</string>
+    <string name="hidden_apps_enter_password">Introduce tu contraseña</string>
+    <string name="hidden_apps_confirm_password">Confirma tu contraseña</string>
+    <string name="hidden_apps_pin_mismatch">Los códigos PIN no coinciden</string>
+    <string name="hidden_apps_pin_invalid">El PIN debe contener entre 6 y 12 dígitos numéricos</string>
+    <string name="hidden_apps_setup_save_failed">No se pudo guardar la credencial en la bóveda segura. Inténtalo de nuevo.</string>
+    <string name="hidden_apps_pattern_mismatch">Los patrones no coinciden</string>
+    <string name="hidden_apps_pattern_invalid">Conecta al menos 4 puntos diferentes</string>
+    <string name="hidden_apps_password_mismatch">Las contraseñas no coinciden</string>
+    <string name="hidden_apps_password_invalid">La contraseña debe tener entre 8 y 64 caracteres</string>
+    <string name="hidden_apps_auth_failed">Credencial incorrecta. Inténtalo de nuevo.</string>
+    <string name="hidden_apps_too_many_attempts">Demasiados intentos fallidos.</string>
+    <string name="hidden_apps_cooldown_wait">Demasiados intentos. Espera %1$d segundos para volver a intentar.</string>
+    <string name="hidden_apps_change_method">Cambiar método de protección</string>
+    <string name="hidden_apps_reset_protection">Restablecer protección</string>
+    <string name="hidden_apps_reset_dialog_title">¿Restablecer protección de Apps ocultas?</string>
+    <string name="hidden_apps_reset_dialog_desc">Se eliminará la credencial configurada y todas las aplicaciones ocultas volverán a mostrarse en el cajón de aplicaciones.</string>
+    <string name="hidden_apps_reset_confirm">Restablecer</string>
+    <string name="hidden_apps_reset_auth_title">Autorizar restablecimiento</string>
+    <string name="hidden_apps_reset_auth_desc">Ingresa tu credencial actual para autorizar el restablecimiento de Apps ocultas.</string>
+    <string name="hidden_apps_reset_with_device">Recuperar con bloqueo del dispositivo</string>
+    <string name="hidden_apps_reset_with_nova">Restablecer con credencial Nova</string>
+    <string name="hidden_apps_reset_no_device_lock">El dispositivo no tiene bloqueo de pantalla seguro configurado. Se requiere ingresar la credencial actual de Nova para restablecer la protección.</string>
+    <string name="hidden_apps_hide">Ocultar</string>
+    <string name="hidden_apps_show">Mostrar</string>
+    <string name="hidden_apps_hidden_badge">Oculta</string>
+    <string name="hidden_apps_cancel">Cancelar</string>
+    <string name="hidden_apps_confirm">Confirmar</string>
+    <string name="hidden_apps_search_hint">Buscar aplicación...</string>
+    <string name="hidden_apps_tab_hidden">Ocultas (%1$d)</string>
+    <string name="hidden_apps_tab_all">Todas (%1$d)</string>
+    <string name="hidden_apps_biometric_prompt_title">Apps ocultas</string>
+    <string name="hidden_apps_biometric_prompt_subtitle">Autentícate para acceder a tus aplicaciones protegidas</string>
+    <string name="hidden_apps_biometric_prompt_cancel">Cancelar</string>
 </resources>

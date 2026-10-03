@@ -4,7 +4,7 @@
 
     <!-- Prominent Disclosure Strings (EN) -->
     <string name="accessibility_disclosure_title">Accessibility Service Usage</string>
-    <string name="accessibility_disclosure_message">NovaLauncher uses the Accessibility Service exclusively to perform system global actions via gestures:\n\n• Double tap: lock the screen.\n• Swipe down: open the notification panel.\n\nNovaLauncher does not use the service to read content from other applications, extract screen text, or record or transmit any accessibility event content.\n\nThese features are optional and will not be available if the service remains disabled.</string>
+    <string name="accessibility_disclosure_message">NovaLauncher uses the Accessibility Service exclusively to perform system global actions via gestures and shortcuts:\n\n• Double tap: lock the screen.\n• Swipe down: open the notification panel.\n• Tap the message counter: open the notification panel.\n\nNovaLauncher does not use the service to read content from other applications, extract screen text, or record or transmit any accessibility event content.\n\nThese features are optional and the user must accept this disclosure before configuring the service in system settings.</string>
     <string name="accessibility_disclosure_accept">Accept &amp; Configure</string>
     <string name="accessibility_disclosure_cancel">Not now</string>
 
@@ -21,4 +21,58 @@
     <string name="settings_privacy_policy_title">Privacy Policy</string>
     <string name="settings_privacy_policy_desc">Learn how NovaLauncher protects your data and privacy</string>
     <string name="settings_privacy_policy_btn">View policy</string>
+
+    <!-- Hidden Apps Strings (EN) -->
+    <string name="hidden_apps_title">Hidden Apps</string>
+    <string name="hidden_apps_setup_title">Set Up Hidden Apps Protection</string>
+    <string name="hidden_apps_setup_subtitle">Choose a method to protect your private apps</string>
+    <string name="hidden_apps_auth_biometric">Secure Biometrics</string>
+    <string name="hidden_apps_auth_biometric_desc">Use fingerprint or system biometric recognition</string>
+    <string name="hidden_apps_auth_device">Device Credential</string>
+    <string name="hidden_apps_auth_device_desc">Android system PIN, pattern or password</string>
+    <string name="hidden_apps_auth_pin">Nova PIN</string>
+    <string name="hidden_apps_auth_pin_desc">Custom 6 to 12 digit numeric code</string>
+    <string name="hidden_apps_auth_pattern">Nova Pattern</string>
+    <string name="hidden_apps_auth_pattern_desc">Custom unlock pattern with at least 4 points</string>
+    <string name="hidden_apps_auth_password">Nova Password</string>
+    <string name="hidden_apps_auth_password_desc">Custom password from 8 to 64 characters</string>
+    <string name="hidden_apps_empty_state_title">No hidden apps</string>
+    <string name="hidden_apps_empty_state_desc">Apps marked as hidden will not appear in App Drawer or search results</string>
+    <string name="hidden_apps_enter_pin">Enter PIN</string>
+    <string name="hidden_apps_confirm_pin">Confirm PIN</string>
+    <string name="hidden_apps_enter_pattern">Draw pattern</string>
+    <string name="hidden_apps_confirm_pattern">Confirm pattern</string>
+    <string name="hidden_apps_enter_password">Enter password</string>
+    <string name="hidden_apps_confirm_password">Confirm password</string>
+    <string name="hidden_apps_pin_mismatch">PINs do not match</string>
+    <string name="hidden_apps_pin_invalid">PIN must contain between 6 and 12 digits</string>
+    <string name="hidden_apps_setup_save_failed">Could not save the credential to the secure vault. Please try again.</string>
+    <string name="hidden_apps_pattern_mismatch">Patterns do not match</string>
+    <string name="hidden_apps_pattern_invalid">Connect at least 4 distinct points</string>
+    <string name="hidden_apps_password_mismatch">Passwords do not match</string>
+    <string name="hidden_apps_password_invalid">Password must be between 8 and 64 characters</string>
+    <string name="hidden_apps_auth_failed">Incorrect credential. Please try again.</string>
+    <string name="hidden_apps_too_many_attempts">Too many failed attempts.</string>
+    <string name="hidden_apps_cooldown_wait">Too many attempts. Wait %1$d seconds before trying again.</string>
+    <string name="hidden_apps_change_method">Change protection method</string>
+    <string name="hidden_apps_reset_protection">Reset protection</string>
+    <string name="hidden_apps_reset_dialog_title">Reset Hidden Apps protection?</string>
+    <string name="hidden_apps_reset_dialog_desc">Your current credential will be deleted and all hidden apps will reappear in the app drawer.</string>
+    <string name="hidden_apps_reset_confirm">Reset</string>
+    <string name="hidden_apps_reset_auth_title">Authorize Reset</string>
+    <string name="hidden_apps_reset_auth_desc">Enter your current credential to authorize resetting Hidden Apps.</string>
+    <string name="hidden_apps_reset_with_device">Recover with device screen lock</string>
+    <string name="hidden_apps_reset_with_nova">Reset with Nova credential</string>
+    <string name="hidden_apps_reset_no_device_lock">No secure screen lock is configured on this device. Your current Nova credential is required to reset protection.</string>
+    <string name="hidden_apps_hide">Hide</string>
+    <string name="hidden_apps_show">Unhide</string>
+    <string name="hidden_apps_hidden_badge">Hidden</string>
+    <string name="hidden_apps_cancel">Cancel</string>
+    <string name="hidden_apps_confirm">Confirm</string>
+    <string name="hidden_apps_search_hint">Search app...</string>
+    <string name="hidden_apps_tab_hidden">Hidden (%1$d)</string>
+    <string name="hidden_apps_tab_all">All (%1$d)</string>
+    <string name="hidden_apps_biometric_prompt_title">Hidden Apps</string>
+    <string name="hidden_apps_biometric_prompt_subtitle">Authenticate to access protected apps</string>
+    <string name="hidden_apps_biometric_prompt_cancel">Cancel</string>
 </resources>

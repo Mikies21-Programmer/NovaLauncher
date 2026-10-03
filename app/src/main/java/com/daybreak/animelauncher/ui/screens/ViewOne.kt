@@ -306,7 +306,8 @@ fun ViewOne(
                 Box(
                     modifier = Modifier
                         .size(45.dp)
-                        .background(style.miButtonColor.parseColorSafe(), shape = androidx.compose.foundation.shape.CircleShape),
+                        .background(style.miButtonColor.parseColorSafe(), shape = androidx.compose.foundation.shape.CircleShape)
+                        .clickable { onSettingsClick() },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = "mi", color = style.miTextColor.parseColorSafe(), fontWeight = FontWeight.Normal, fontSize = 16.sp)

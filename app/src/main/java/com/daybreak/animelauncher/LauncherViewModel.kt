@@ -1,5 +1,9 @@
 package com.daybreak.animelauncher
 
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthMode
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsConfig
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsRepository
+
 import android.app.Application
 import android.app.WallpaperManager
 import android.appwidget.AppWidgetHost
@@ -135,7 +139,8 @@ data class LauncherState(
     val gesturesConfig: GesturesConfig = GesturesConfig(),
     val customAppIcons: Map<String, String> = emptyMap(),
     val hasCompletedOnboarding: Boolean = false,
-    val onboardingStep: Int = 0
+    val onboardingStep: Int = 0,
+    val hiddenAppsConfig: HiddenAppsConfig = HiddenAppsConfig()
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -220,6 +225,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
             _installedApps.value = mappedApps
             autoCategorizeApps(getApplication(), mappedApps)
+            val installedPackages = mappedApps.mapNotNull { it.packageName }.toSet()
+            hiddenAppsRepository.pruneUninstalledPackages(installedPackages)
         }
     }
 
@@ -265,7 +272,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                                 ViewConfig(quote = "Explora el horizonte")
                             ),
                             hasCompletedOnboarding = loaded.hasCompletedOnboarding,
-                            onboardingStep = loaded.onboardingStep
+                            onboardingStep = loaded.onboardingStep,
+                            hiddenAppsConfig = loaded.hiddenAppsConfig ?: HiddenAppsConfig()
                         )
                     }
                 } catch (e: Exception) {
@@ -810,5 +818,35 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 drawerConfig = state.drawerConfig.copy(categories = currentCategories)
             )
         }
+    }
+
+    // --- Hidden Apps Management ---
+
+    val hiddenAppsRepository = HiddenAppsRepository(
+        context = application,
+        getCurrentConfig = { _state.value.hiddenAppsConfig },
+        onUpdateConfig = { newConfig ->
+            updateState { it.copy(hiddenAppsConfig = newConfig) }
+        }
+    )
+
+    fun hideApp(packageName: String) {
+        hiddenAppsRepository.hidePackage(packageName, getApplication<Application>().packageName)
+    }
+
+    fun unhideApp(packageName: String) {
+        hiddenAppsRepository.unhidePackage(packageName)
+    }
+
+    fun setHiddenAppsAuthMode(mode: HiddenAppsAuthMode) {
+        hiddenAppsRepository.setAuthMode(mode)
+    }
+
+    fun setHiddenAppsConfig(config: HiddenAppsConfig) {
+        updateState { it.copy(hiddenAppsConfig = config) }
+    }
+
+    fun clearHiddenAppsConfiguration() {
+        hiddenAppsRepository.resetProtection()
     }
 }

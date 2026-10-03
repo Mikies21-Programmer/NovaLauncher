@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -28,7 +28,7 @@ import com.daybreak.animelauncher.theming.LauncherThemeTokens
 import com.daybreak.animelauncher.theming.LocalLauncherThemeTokens
 import com.daybreak.animelauncher.ui.theme.AnimeLauncherTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val viewModel: LauncherViewModel by viewModels()
 
@@ -131,6 +131,11 @@ class MainActivity : ComponentActivity() {
             }
             viewModel.onHomeIntentReceived()
         }
+        if (intent?.getBooleanExtra("open_settings", false) == true) {
+            navControllerRef?.navigate("settings") {
+                launchSingleTop = true
+            }
+        }
     }
 
     @android.annotation.SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -191,6 +196,9 @@ class MainActivity : ComponentActivity() {
                                 var openAdvancedInSettings by remember { mutableStateOf(false) }
                                 LaunchedEffect(navController) {
                                     navControllerRef = navController
+                                    if (intent?.getBooleanExtra("open_settings", false) == true) {
+                                        navController.navigate("settings") { launchSingleTop = true }
+                                    }
                                 }
 
                                 val startDest = if (state.hasCompletedOnboarding) "launcher" else "onboarding"

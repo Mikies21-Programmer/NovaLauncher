@@ -6,8 +6,6 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- El material criptográfico depende de claves locales en Android Keystore específicas del dispositivo y no debe restaurarse en otro dispositivo -->
+    <exclude domain="sharedpref" path="nova_hidden_apps_vault.xml" />
 </full-backup-content>

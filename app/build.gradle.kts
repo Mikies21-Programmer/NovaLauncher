@@ -25,8 +25,8 @@ android {
         applicationId = "com.daybreak.animelauncher"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.5"
+        versionCode = 8
+        versionName = "1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -96,9 +96,13 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.biometric)
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    // PERF-OPT-3: instala el Baseline Profile embebido en el APK en el momento de instalar
+    // (API 24-30 vía broadcast; 31+ lo consume ART directamente del APK).
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     val media3Version = "1.4.1"
     implementation("androidx.media3:media3-exoplayer:$media3Version")
     implementation("androidx.media3:media3-ui:$media3Version")

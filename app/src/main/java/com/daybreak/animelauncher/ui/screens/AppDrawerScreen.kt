@@ -128,15 +128,17 @@ fun AppDrawerScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
+    val hiddenPackages = state.hiddenAppsConfig.hiddenPackages
+
     // 1. TRABAJO ESTABLE: Se prepara exclusivamente cuando cambian las apps instaladas,
     // la categoría seleccionada o la lista de categorías. Cero re-sorting o re-grouping durante Search.
-    val preparedCategory = remember(selectedCategoryIndex, installedApps, categories) {
+    val preparedCategory = remember(selectedCategoryIndex, installedApps, categories, hiddenPackages) {
         val appsInCat = if (currentCategory.id == "all") {
             installedApps
         } else {
             val catPackages = currentCategory.packageNames
             installedApps.filter { it.packageName != null && catPackages.contains(it.packageName) }
-        }
+        }.filter { it.packageName !in hiddenPackages }
         prepareDrawerCategory(appsInCat)
     }
 
@@ -167,6 +169,12 @@ fun AppDrawerScreen(
             val firstVisible = visibleItems.first()
             val lastVisible = visibleItems.last()
 
+            // Protección defensiva ante desincronización transitoria entre listState y items
+            // (ej. cambio de categoría o búsqueda con scroll previo profundo)
+            if (firstVisible.index > items.lastIndex) {
+                return@derivedStateOf items.firstOrNull()?.sectionChar
+            }
+
             // Si el último elemento de la lista está en pantalla, transicionamos hacia el final
             if (lastVisible.index >= items.lastIndex) {
                 val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
@@ -179,9 +187,9 @@ fun AppDrawerScreen(
                     val progress = (1f - (remainingScroll.toFloat() / viewportHeight)).coerceIn(0f, 1f)
                     val targetIndex = (firstVisible.index + ((items.lastIndex - firstVisible.index) * progress).toInt())
                         .coerceIn(firstVisible.index, items.lastIndex)
-                    items[targetIndex].sectionChar
+                    items.getOrNull(targetIndex)?.sectionChar ?: items.last().sectionChar
                 } else {
-                    items[firstVisible.index].sectionChar
+                    items.getOrNull(firstVisible.index)?.sectionChar ?: items.first().sectionChar
                 }
             } else {
                 items.getOrNull(firstVisible.index)?.sectionChar
