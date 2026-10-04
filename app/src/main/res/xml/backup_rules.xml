@@ -6,6 +6,7 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!-- El material criptográfico depende de claves locales en Android Keystore específicas del dispositivo y no debe restaurarse en otro dispositivo -->
+    <!-- El material criptográfico y la configuración de Hidden Apps dependen de claves y contexto locales y no deben respaldarse ni restaurarse en otro dispositivo -->
     <exclude domain="sharedpref" path="nova_hidden_apps_vault.xml" />
+    <exclude domain="sharedpref" path="nova_hidden_apps_prefs.xml" />
 </full-backup-content>

@@ -1,7 +1,11 @@
 package com.daybreak.animelauncher
 
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthMode
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthenticator
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsConfig
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsCredentialStore
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsMigrator
+import com.daybreak.animelauncher.hiddenapps.HiddenAppsPreferencesStore
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsRepository
 
 import android.app.Application
@@ -145,6 +149,8 @@ data class LauncherState(
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+    private val hiddenAppsPrefsStore = HiddenAppsPreferencesStore(application)
+    private val hiddenAppsAuthenticator = HiddenAppsAuthenticator()
     private val gson = Gson()
     val widgetHostManager = WidgetHostManager(application)
     val appWidgetHost: AppWidgetHost get() = widgetHostManager.appWidgetHost
@@ -258,6 +264,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             android.os.Trace.endSection() // STATE_READ
 
             var state = LauncherState()
+            var legacyHiddenConfig: HiddenAppsConfig? = null
 
             if (json != null) {
                 // ── BLOQUE 2: Deserialización Gson del estado principal (GSON_STATE) ──
@@ -265,6 +272,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 try {
                     val loaded = gson.fromJson(json, LauncherState::class.java)
                     if (loaded != null) {
+                        legacyHiddenConfig = loaded.hiddenAppsConfig
                         state = loaded.copy(
                             styleConfig = loaded.styleConfig ?: AdvancedStyleConfig(),
                             viewConfigs = loaded.viewConfigs ?: listOf(
@@ -273,7 +281,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             ),
                             hasCompletedOnboarding = loaded.hasCompletedOnboarding,
                             onboardingStep = loaded.onboardingStep,
-                            hiddenAppsConfig = loaded.hiddenAppsConfig ?: HiddenAppsConfig()
+                            hiddenAppsConfig = HiddenAppsConfig()
                         )
                     }
                 } catch (e: Exception) {
@@ -282,6 +290,19 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     android.os.Trace.endSection() // GSON_STATE
                 }
             }
+
+            // ── BLOQUE 2B: Resolución y migración de Hidden Apps aislada de backup ──
+            val resolvedHiddenConfig = HiddenAppsMigrator.resolveConfig(
+                context = getApplication(),
+                prefsStore = hiddenAppsPrefsStore,
+                credentialStore = HiddenAppsCredentialStore(getApplication()),
+                authenticator = hiddenAppsAuthenticator,
+                legacyConfig = legacyHiddenConfig,
+                onPurgeLegacyConfig = {
+                    saveState(state.copy(hiddenAppsConfig = HiddenAppsConfig()))
+                }
+            )
+            state = state.copy(hiddenAppsConfig = resolvedHiddenConfig)
 
             // ── BLOQUE 3: Lectura de SharedPreferences para el estilo (STYLE_READ) ──
             android.os.Trace.beginSection("STYLE_READ")
@@ -324,7 +345,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun saveState(newState: LauncherState) {
         try {
-            val json = gson.toJson(newState)
+            // ARCH-DECISION: El estado de Hidden Apps no participa en Android Backup.
+            // Se persiste exclusivamente en nova_hidden_apps_prefs.xml y se excluye de launcher_prefs.
+            val stateToSave = newState.copy(hiddenAppsConfig = HiddenAppsConfig())
+            val json = gson.toJson(stateToSave)
             prefs.edit().putString("launcher_state", json).apply()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -334,6 +358,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private fun updateState(transform: (LauncherState) -> LauncherState) {
         _state.update { currentState ->
             val newState = transform(currentState)
+            if (newState.hiddenAppsConfig != currentState.hiddenAppsConfig) {
+                hiddenAppsPrefsStore.saveConfig(newState.hiddenAppsConfig)
+            }
             saveState(newState)
             newState
         }

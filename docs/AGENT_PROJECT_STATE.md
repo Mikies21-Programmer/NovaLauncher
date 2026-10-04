@@ -26,7 +26,8 @@
 | :--- | :--- | :---: |
 | **HIDDEN-APPS-AUDIT-01** | Auditoría estática integral de arquitectura, seguridad y flujos | ✅ **COMPLETADA** |
 | **HIDDEN-APPS-IMPLEMENTATION-01** | Implementación completa (Gesto spread, Bóveda Keystore, Auth, UI, Drawer) | ✅ **COMPLETADA** |
-| **HIDDEN-APPS-FIX-01** | Cierre de bypass de reset, FLAG_SECURE total, timeout 60s, density dp en gesto, exclusión mutua de gestos, sincronización de idioma, hardening de sesión y tests | ✅ **COMPLETADA / AUTOMATIZACIÓN VALIDADA / PENDIENTE VALIDACIÓN FÍSICA** |
+| **HIDDEN-APPS-FIX-01** | Cierre de bypass de reset, FLAG_SECURE total, timeout 60s, density dp en gesto, exclusión mutua de gestos, sincronización de idioma, hardening de sesión y tests | ✅ **COMPLETADA** |
+| **HIDDEN-APPS-BACKUP-ISOLATION** | Aislamiento estricto de Android Backup (`nova_hidden_apps_prefs.xml`), migración segura (Caso A vs B), exclusión en XMLs, prevención de lockout, suite de 127 tests (100% PASS), validación física en POCO X6 5G (P1-P4, P6, P8-P10, C1, C2 aprobados; P5 D2D Xiaomi pendiente; P7 riesgo preexistente) | ✅ **CONSOLIDADA / VALIDADA FÍSICAMENTE** |
 
 ---
 
@@ -166,20 +167,36 @@ Apps Ocultas (`HIDDEN-APPS-FIX-01`) proporciona una bóveda privada local para o
 1. **`HiddenAppsModels.kt`:** Modelos de datos inmutables y enums para modos de autenticación (`NONE`, `BIOMETRIC`, `DEVICE_CREDENTIAL`, `OWN_PIN`, `OWN_PATTERN`, `OWN_PASSWORD`), estados de flujo de UI (`Closed`, `Setup`, `Auth`, `AuthenticatedScreen`) y estado de configuración (`HiddenAppsConfig`).
 2. **`HiddenAppsCrypto.kt`:** Derivación criptográfica mediante PBKDF2WithHmacSHA256 con salt criptográfico de 16 bytes (`SecureRandom`), 120,000 iteraciones, comparación en tiempo constante (`MessageDigest.isEqual`), validadores estrictos y sanitización en memoria (`wipe`).
 3. **`HiddenAppsCredentialStore.kt`:** Cifrado por hardware en `AndroidKeyStore` con clave simétrica AES-GCM (256 bits, `NoPadding`) y persistencia del ciphertext e IV en un archivo SharedPreferences exclusivo (`nova_hidden_apps_vault.xml`), excluido formalmente de backups en la nube y transferencias de dispositivo.
-4. **`HiddenAppsAuthenticator.kt`:** Coordinador de verificación de credenciales con cooldown de 30 segundos tras 5 intentos fallidos consecutivos, soporte para `BiometricPrompt` (`BIOMETRIC_STRONG`) y credenciales del dispositivo (`createConfirmDeviceCredentialIntent`).
-5. **`HiddenAppsRepository.kt`:** Repositorio central que coordina la persistencia del estado en `LauncherState` y las credenciales en `HiddenAppsCredentialStore`. Incorpora `verifyAndReset()` para eliminar cualquier camino de bypass de reset.
-6. **`HiddenAppsGesture.kt`:** Detector táctil multitáctil de 2 dedos (separación hacia afuera) con zona central geométrica (35%), zoom trigger >= 1.45x, escala inicial dependiente de densidad (`MIN_INITIAL_DISTANCE_DP = 24f`) y exclusión de gestos consumidos.
-7. **`HiddenAppsScreen.kt`:** Pantalla modal autenticada con `FLAG_SECURE` en la ventana, filtrado por pestañas ("Todas" / "Ocultas"), búsqueda en vivo, auto-cierre tras 60 segundos de inactividad táctil (`PointerEventPass.Initial`) y diálogo de confirmación de reseteo.
-8. **`HiddenAppsAuthDialog.kt` & `HiddenAppsSetupDialog.kt`:** Modales seguros con `SecureFlagPolicy.SecureOn` y `FLAG_SECURE` en la Activity Window. El flujo de reseteo exige de forma obligatoria la credencial Nova actualmente configurada o credencial segura del dispositivo (prohibido reset sin autenticación cuando `isDeviceSecure == false`).
-9. **Integración con `AppDrawerScreen.kt`:** Filtrado de `hiddenPackages` antes de `prepareDrawerCategory(appsInCat)`, garantizando desaparición completa del Drawer, A-Z y búsqueda, preservando al 100% las guardas de `CRASH-FIX-01`.
+4. **`HiddenAppsPreferencesStore.kt`:** Almacén persistente exclusivo (`nova_hidden_apps_prefs.xml`) para la configuración funcional (`isConfigured`, `authMode`, `hiddenPackages`), excluido explícitamente de cloud backup, device transfer y legacy backups en `data_extraction_rules.xml` y `backup_rules.xml`.
+5. **`HiddenAppsMigrator.kt`:** Resolvedor y migrador que distingue de forma determinista entre actualización local (Caso A: usuario existente en el mismo dispositivo conservando contexto de seguridad Keystore/biometría) y restore de backup antiguo / instalación nueva (Caso B: descarta configuración huérfana para evitar estados zombies y lockout).
+6. **`HiddenAppsAuthenticator.kt`:** Coordinador de verificación de credenciales con cooldown de 30 segundos tras 5 intentos fallidos consecutivos, soporte para `BiometricPrompt` (`BIOMETRIC_STRONG`) y credenciales del dispositivo (`createConfirmDeviceCredentialIntent`).
+7. **`HiddenAppsRepository.kt`:** Repositorio central que coordina la persistencia del estado aislado y las credenciales en `HiddenAppsCredentialStore`. Incorpora `verifyAndReset()` para eliminar cualquier camino de bypass de reset.
+8. **`HiddenAppsGesture.kt`:** Detector táctil multitáctil de 2 dedos (separación hacia afuera) con zona central geométrica (35%), zoom trigger >= 1.45x, escala inicial dependiente de densidad (`MIN_INITIAL_DISTANCE_DP = 24f`) y exclusión de gestos consumidos.
+9. **`HiddenAppsScreen.kt`:** Pantalla modal autenticada con `FLAG_SECURE` en la ventana, filtrado por pestañas ("Todas" / "Ocultas"), búsqueda en vivo, auto-cierre tras 60 segundos de inactividad táctil (`PointerEventPass.Initial`) y diálogo de confirmación de reseteo.
+10. **`HiddenAppsAuthDialog.kt` & `HiddenAppsSetupDialog.kt`:** Modales seguros con `SecureFlagPolicy.SecureOn` y `FLAG_SECURE` en la Activity Window. El flujo de reseteo exige de forma obligatoria la credencial Nova actualmente configurada o credencial segura del dispositivo (prohibido reset sin autenticación cuando `isDeviceSecure == false`).
+11. **Integración con `AppDrawerScreen.kt`:** Filtrado de `hiddenPackages` antes de `prepareDrawerCategory(appsInCat)`, garantizando desaparición completa del Drawer, A-Z y búsqueda, preservando al 100% las guardas de `CRASH-FIX-01`.
 
-### Decisiones de Arquitectura y Seguridad Consolidadas (HIDDEN-APPS-FIX-01)
+### Decisiones de Arquitectura y Seguridad Consolidadas (HIDDEN-APPS-FIX-01 / HIDDEN-APPS-BACKUP-ISOLATION)
 * **A) Reset Protegido (Eliminación de Bypass):** El reseteo de protección nunca puede ejecutarse sin autenticación. En dispositivos sin bloqueo del sistema (`isDeviceSecure == false`), se exige estrictamente la credencial Nova (`OWN_PIN`, `OWN_PATTERN`, `OWN_PASSWORD`) mediante `verifyAndReset()`. Un reseteo cancelado o con credencial errónea jamás altera la configuración ni revela paquetes.
 * **B) FLAG_SECURE Completo:** Aplicado mediante `SecureFlagPolicy.SecureOn` y en la ventana de la Activity a `HiddenAppsSetupDialog`, `HiddenAppsAuthDialog` y `HiddenAppsScreen`, impidiendo capturas de pantalla, grabaciones y previsualizaciones en multitarea durante todo el ciclo sensible.
 * **C) Auto-Cierre por Inactividad (60 segundos):** En `HiddenAppsScreen` autenticada, un temporizador de 60 segundos descarta la sesión y vuelve a `Closed` si no hay actividad táctil. Cualquier toque en pantalla (`PointerEventPass.Initial`) reinicia el contador.
 * **D) Consistencia de Idioma:** Las pantallas y modales de Apps Ocultas se envuelven en `CompositionLocalProvider(LocalContext, LocalConfiguration)` configurado con `Locale.forLanguageTag(state.language)`, respondiendo instantáneamente al toggle de idioma interno de NovaLauncher ("es" / "en").
 * **E) Sin Acceso Alternativo (Descubrimiento Único por Gesto):** No se añaden accesos en Settings, widgets, iconos ni destinos NavHost. El gesto spread outward es la única vía de acceso.
 * **F) Exclusión Mutua de Gestos:** `LauncherScreen.kt` comprueba `hiddenAppsFlowState == Closed` antes de disparar el pinch-in de Settings, y `HiddenAppsGesture.kt` descarta punteros consumidos, impidiendo que una secuencia multitáctil continua dispare consecutivamente ambos flujos.
+* **G) Aislamiento Estricto de Android Backup (Decisión D-33):** El estado funcional de Hidden Apps se mantiene fuera del Android Backup. Se persiste exclusivamente en `nova_hidden_apps_prefs.xml` y se excluye formalmente en `backup_rules.xml` y `data_extraction_rules.xml`. `LauncherViewModel.saveState()` persiste `hiddenAppsConfig = HiddenAppsConfig()` por defecto en `launcher_prefs.xml`, eliminando cualquier filtración de privacidad hacia la nube de Google o riesgo de lockout al restaurar copias de seguridad.
+* **H) Residual C2 Documentado (Ventana Transitoria de Primer Launch):** Caracterizado empíricamente en hardware real POCO X6 5G:
+  - Requiere upgrade real previo (`lastUpdateTime > firstInstallTime`).
+  - La instalación nunca ha ejecutado la build de aislamiento (sin marcador `nova_local_install.marker` en `noBackupFilesDir`).
+  - Se restaura configuración legacy de `BIOMETRIC` o `DEVICE_CREDENTIAL`.
+  - Ocurre exclusivamente en el primer launch.
+  - Es una ventana de un solo arranque (tras el cual se estampa el marcador y se crea la preferencia aislada).
+  - No afecta a modos `OWN_*` (`OWN_PIN`, `OWN_PATTERN`, `OWN_PASSWORD`), los cuales exigen estrictamente el vault y Keystore local.
+  - No produce lockout.
+  - No produce bypass.
+  - Es recuperable mediante reset protegido (`verifyAndReset()`).
+  - Quedará cerrada definitivamente en una futura release cuando el marcador local sea requisito obligatorio para migrar modos del sistema.
+* **I) Estado de Validación Física P5 (D2D Xiaomi):** Permanece formalmente como **PENDING / NOT PHYSICALLY VALIDATED**. Las reglas XML contienen la exclusión en `<device-transfer>`, pero la transferencia D2D específica de Xiaomi no fue probada físicamente en hardware real.
+* **J) Riesgo Preexistente P7 (Keystore Invalidado):** Si el Keystore del dispositivo resulta invalidado a nivel de sistema, una configuración válida previa de Hidden Apps impedirá la autenticación con credenciales `OWN_*`. Se documenta formalmente como **riesgo PREEXISTENTE** inherente a la arquitectura de `AndroidKeyStore` de hardware, NO introducido ni asociado a la implementación de aislamiento de backup.
 
 ---
 
@@ -463,7 +480,7 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 ## 10. Validaciones Automatizadas Consolidadas
 
 * `git diff --check`: **PASS** (0 errores de formato, fin de línea o sintaxis).
-* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (**107/107 pruebas unitarias aprobadas al 100%**: 62 suite base + 45 suite Apps Ocultas).
+* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (**127/127 pruebas unitarias aprobadas al 100%**: 62 suite base + 45 suite Apps Ocultas + 20 suite Migración y Aislamiento Backup).
 * `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado).
 * `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores).
 * `.\gradlew.bat lintVitalRelease`: **BUILD SUCCESSFUL** (0 errores, 0 advertencias).
@@ -474,7 +491,7 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 
 ## 11. Tareas Pendientes y Hoja de Ruta
 
-1. **Validación Física en Hardware Real (POCO X6 5G):** Ejecución del checklist físico de Apps Ocultas por parte del desarrollador (gesto spread, biometría, PIN/patrón/pass, reset seguro, timeout 60s, FLAG_SECURE).
+1. **HIDDEN-APPS-BACKUP-ISOLATION (Consolidada):** Batería de validación física en POCO X6 5G ejecutada exitosamente (P1, P2, P6, P10, P3, P4, P8, P9, C1, C2 aprobados; P5 D2D Xiaomi pendiente; P7 preexistente documentado).
 2. **Performance Engineering — Fase P2-04 (Composición / Layout):** Auditoría técnica y selección del próximo experimento A/B de optimización sobre los hotspots de composición restantes.
 3. **Estabilización de Video Resume (Independiente):** Diagnóstico y corrección de la re-vinculación de `TextureView` en `VideoWallpaperManager` al regresar de apps pesadas.
 4. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
