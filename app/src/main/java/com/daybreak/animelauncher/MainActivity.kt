@@ -146,6 +146,11 @@ class MainActivity : FragmentActivity() {
         try {
             enableEdgeToEdge()
 
+            // ── MEMORY-L1: callbacks de trim a nivel de proceso ──────────────
+            // TRIM_MEMORY_UI_HIDDEN libera caches reconstruibles (Coil). Attach
+            // idempotente: el costo por arranque es una llamada registrada.
+            com.daybreak.animelauncher.memory.MemoryManager.attach(this)
+
             // ── P2-02B: VIEWMODEL-ACCESS ─────────────────────────────────────
             // Primer acceso al delegado viewModels() — fuerza creación de VM
             // y en consecuencia ejecuta loadState() de forma síncrona.
