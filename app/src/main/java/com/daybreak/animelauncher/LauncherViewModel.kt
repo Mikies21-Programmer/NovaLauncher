@@ -6,6 +6,7 @@ import com.daybreak.animelauncher.hiddenapps.HiddenAppsConfig
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsCredentialStore
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsMigrator
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsPreferencesStore
+import com.daybreak.animelauncher.theming.ThemeMode
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsRepository
 
 import android.app.Application
@@ -102,7 +103,11 @@ data class AdvancedStyleConfig(
     val panelTransparency: Float = 0.88f,
     val glassBorderAlpha: Float = 0.25f,
     val cornerRadius: Float = 16f,
-    val widgetOpacity: Float = 0.90f
+    val widgetOpacity: Float = 0.90f,
+
+    // UI-1: modo de tema adaptativo. MANUAL = comportamiento histórico exacto
+    // (default de todos los usuarios existentes; Gson-safe vía constructor no-arg).
+    val themeMode: ThemeMode = ThemeMode.MANUAL
 )
 
 data class DrawerCategory(
@@ -316,7 +321,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 try {
                     val loadedStyle = gson.fromJson(styleJson, AdvancedStyleConfig::class.java)
                     if (loadedStyle != null) {
-                        state = state.copy(styleConfig = loadedStyle)
+                        // UI-1: normalización defensiva de themeMode — Gson puede dejar el
+                        // enum null en JSONs de versiones antiguas (campo ausente) o corruptos.
+                        @Suppress("SENSELESS_COMPARISON")
+                        val safeStyle = if (loadedStyle.themeMode == null) {
+                            loadedStyle.copy(themeMode = ThemeMode.MANUAL)
+                        } else {
+                            loadedStyle
+                        }
+                        state = state.copy(styleConfig = safeStyle)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()

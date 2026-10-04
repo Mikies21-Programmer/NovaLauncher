@@ -14,15 +14,22 @@ import com.daybreak.animelauncher.AdvancedStyleConfig
  * @property textPrimaryColor Color de texto principal de alto contraste en formato ARGB Int.
  * @property textSecondaryColor Color de texto secundario / atenuado en formato ARGB Int.
  * @property borderColor Color de bordes y delimitadores visuales en formato ARGB Int.
+ * @property textOnAccentColor UI-1 Fase 1: texto sobre superficies de acento (p. ej. botón "mi").
+ * @property statusColor UI-1 Fase 1: color de los status widgets bajo el tratamiento actual (acento).
  */
 data class LauncherThemeTokens(
     @get:ColorInt val accentColor: Int,
     @get:ColorInt val surfaceColor: Int,
     @get:ColorInt val textPrimaryColor: Int,
     @get:ColorInt val textSecondaryColor: Int,
-    @get:ColorInt val borderColor: Int
+    @get:ColorInt val borderColor: Int,
+    @get:ColorInt val textOnAccentColor: Int = DEFAULT_TEXT_ON_ACCENT,
+    @get:ColorInt val statusColor: Int = accentColor
 ) {
     companion object {
+        /** Texto por defecto sobre superficies de acento: negro (el acento cyberpunk es luminoso). */
+        const val DEFAULT_TEXT_ON_ACCENT = 0xFF000000.toInt()
+
         /**
          * Tokens por defecto correspondientes a la estética cyberpunk original de NovaLauncher.
          * Garantiza 100% de paridad visual con las versiones anteriores.
@@ -56,6 +63,8 @@ data class LauncherThemeTokens(
         /**
          * Sintetiza tokens de tema runtime a partir del estado actual de [AdvancedStyleConfig].
          * Mantiene retrocompatibilidad total extrayendo el acento configurado con fallback robusto.
+         * UI-1 Fase 1: `textOnAccentColor` refleja el texto sobre el botón "mi" (paridad MANUAL)
+         * y `statusColor` refleja el tratamiento actual de los status widgets (acento).
          */
         fun fromAdvancedStyleConfig(config: AdvancedStyleConfig): LauncherThemeTokens {
             val accent = parseHexColor(config.accentColor, DEFAULT.accentColor)
@@ -64,7 +73,9 @@ data class LauncherThemeTokens(
                 surfaceColor = DEFAULT.surfaceColor,
                 textPrimaryColor = DEFAULT.textPrimaryColor,
                 textSecondaryColor = DEFAULT.textSecondaryColor,
-                borderColor = accent
+                borderColor = accent,
+                textOnAccentColor = parseHexColor(config.miTextColor, DEFAULT_TEXT_ON_ACCENT),
+                statusColor = accent
             )
         }
     }
