@@ -217,4 +217,108 @@ class AdaptiveThemeEngineTest {
         assertEquals("AUTO sin implementar debe resolver fail-safe igual que MANUAL", manual, auto)
         assertEquals(manual, autoOverrides)
     }
+
+    // =========================================================================
+    // UI-1 FASE 2: provider por página
+    // =========================================================================
+
+    private fun pageTheme(pageIndex: Int, accent: String) =
+        AdaptiveThemeEngine.resolve(
+            pageIndex, null, ThemeMode.MANUAL, config.copy(accentColor = accent)
+        )
+
+    /** A. páginas 0 y 1 pueden tener PageTheme distintos (estructura multi-página). */
+    @Test
+    fun test12_MultiPage_PermitePageThemesDistintos() {
+        val state = AdaptiveThemeState(
+            perPage = mapOf(
+                0 to pageTheme(0, "#00F0FF"),
+                1 to pageTheme(1, "#FF00AA")
+            ),
+            activePage = 0
+        )
+        assertNotEquals(state.themeFor(0), state.themeFor(1))
+        assertEquals(0xFF00F0FF.toInt(), state.themeFor(0)!!.tokens.accentColor)
+        assertEquals(0xFFFF00AA.toInt(), state.themeFor(1)!!.tokens.accentColor)
+    }
+
+    /** B. cambiar activePage cambia el theme expuesto al Drawer. */
+    @Test
+    fun test13_ActivePageCambiaThemeExpuesto() {
+        val state = AdaptiveThemeState(
+            perPage = mapOf(
+                0 to pageTheme(0, "#00F0FF"),
+                1 to pageTheme(1, "#FF00AA")
+            ),
+            activePage = 0
+        )
+        assertEquals(0xFF00F0FF.toInt(), state.themeForActive()!!.tokens.accentColor)
+        val switched = state.copy(activePage = 1)
+        assertEquals(0xFFFF00AA.toInt(), switched.themeForActive()!!.tokens.accentColor)
+    }
+
+    /** C. MANUAL ignora backgroundUri también en resolveState. */
+    @Test
+    fun test14_ManualResolveState_IgnoraBackgroundUris() {
+        val withUris = AdaptiveThemeEngine.resolveState(
+            listOf(0, 1),
+            mapOf(0 to "content://video/x", 1 to "content://image/y"),
+            0, ThemeMode.MANUAL, config
+        )
+        val withoutUris = AdaptiveThemeEngine.resolveState(
+            listOf(0, 1), mapOf(0 to null, 1 to null), 0, ThemeMode.MANUAL, config
+        )
+        assertEquals(withoutUris, withUris)
+    }
+
+    /** D. fallback seguro si no existe theme para el pageIndex pedido. */
+    @Test
+    fun test15_ThemeForPageIndexInexistente_FallbackActivo() {
+        val state = AdaptiveThemeState(
+            perPage = mapOf(0 to pageTheme(0, "#00F0FF")),
+            activePage = 0
+        )
+        // Página 1 sin resolver: cae al tema de la página activa.
+        assertEquals(state.themeFor(0), state.themeFor(1))
+        assertNotNull(state.themeFor(1))
+    }
+
+    /** E. las páginas no comparten una instancia mutable de PageTheme. */
+    @Test
+    fun test16_PageThemesNoCompartenInstancia() {
+        val state = AdaptiveThemeEngine.resolveState(
+            listOf(0, 1), mapOf(0 to null, 1 to null), 0, ThemeMode.MANUAL, config
+        )
+        val t0 = state.perPage.getValue(0)
+        val t1 = state.perPage.getValue(1)
+        assertNotSame("Cada página debe tener su propia instancia de PageTheme", t0, t1)
+        // PageTheme es data class inmutable; en MANUAL los tokens son iguales pero
+        // el PageTheme completo difiere por pageIndex (identidad por página).
+        assertEquals(t0.tokens, t1.tokens)
+        assertNotEquals(t0, t1)
+        assertEquals(0, t0.pageIndex)
+        assertEquals(1, t1.pageIndex)
+    }
+
+    /** F. el Drawer obtiene el theme de la página activa (themeForActive). */
+    @Test
+    fun test17_DrawerObtieneThemeDeActivePage() {
+        val state = AdaptiveThemeEngine.resolveState(
+            listOf(0, 1), mapOf(0 to null, 1 to null), 1, ThemeMode.MANUAL, config
+        )
+        assertEquals(state.themeFor(1), state.themeForActive())
+        assertNotNull(state.themeForActive())
+    }
+
+    /** G. configuración existente permanece compatible (JSON viejo → resolve MANUAL). */
+    @Test
+    fun test18_ConfigExistenteCompatible_ConResolve() {
+        val gson = Gson()
+        val oldJson = """{"accentColor":"#FF00AA","clockColor":"#FF0000","themeMode":"MANUAL"}"""
+        val parsed = gson.fromJson(oldJson, AdvancedStyleConfig::class.java)
+        assertEquals(ThemeMode.MANUAL, parsed.themeMode)
+        val page = AdaptiveThemeEngine.resolve(0, null, parsed.themeMode, parsed)
+        assertEquals(0xFFFF00AA.toInt(), page.tokens.accentColor)
+        assertTrue(page.glass.scrimAlpha in 0f..1f)
+    }
 }

@@ -47,4 +47,7 @@ data class AdaptiveThemeState(
     fun themeFor(pageIndex: Int): PageTheme? = perPage[pageIndex]
         ?: perPage[activePage]
         ?: perPage.values.firstOrNull()
+
+    /** Tema expuesto a overlays globales (Drawer): el de la página activa. */
+    fun themeForActive(): PageTheme? = themeFor(activePage)
 }
