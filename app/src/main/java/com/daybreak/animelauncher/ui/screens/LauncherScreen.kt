@@ -11,6 +11,7 @@ import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthMode
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthenticator
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsFlowState
 import com.daybreak.animelauncher.theming.AdaptiveThemeEngine
+import com.daybreak.animelauncher.theming.rememberAdaptivePageTheme
 import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsAuthDialog
 import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsScreen
 import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsSetupDialog
@@ -621,16 +622,14 @@ fun LauncherScreen(
 
         // UI-1 Fase 2: tema resuelto POR PÁGINA (MANUAL parity: mismos colores que
         // AdvancedStyleConfig). En Fase 3 AUTO resolverá desde el fondo de esta página.
-        val pageTheme = remember(viewConfig.backgroundUri, state.styleConfig) {
-            AdaptiveThemeEngine.resolve(
-                pageIndex = page,
-                backgroundUri = viewConfig.backgroundUri,
-                mode = state.styleConfig.themeMode,
-                styleConfig = state.styleConfig
-            )
-        }
+        val pageTheme = rememberAdaptivePageTheme(
+            pageIndex = page,
+            backgroundUri = viewConfig.backgroundUri,
+            styleConfig = state.styleConfig,
+            appContext = context.applicationContext
+        )
 
-        CompositionLocalProvider(LocalLauncherThemeTokens provides pageTheme.tokens) {
+        CompositionLocalProvider(LocalLauncherThemeTokens provides pageTheme.value.tokens) {
         if (page % 2 == 0) {
             ViewOne(
                 config = viewConfig,
@@ -645,6 +644,7 @@ fun LauncherScreen(
                 isEditMode = isWidgetEditMode,
                 onEnterEditMode = { isWidgetEditMode = true },
                 onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
+                elementColors = pageTheme.value.elementColors,
                 modifier = modifier
             )
         } else {
@@ -661,6 +661,7 @@ fun LauncherScreen(
                 isEditMode = isWidgetEditMode,
                 onEnterEditMode = { isWidgetEditMode = true },
                 onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
+                elementColors = pageTheme.value.elementColors,
                 modifier = modifier
             )
         }
@@ -1111,13 +1112,13 @@ fun LauncherScreen(
         )
     ) {
         // UI-1 Fase 2: el Drawer global consume el tema de la PÁGINA ACTIVA.
-        val activePageTheme = AdaptiveThemeEngine.resolve(
+        val activePageTheme = rememberAdaptivePageTheme(
             pageIndex = pagerState.currentPage,
             backgroundUri = state.viewConfigs.getOrNull(pagerState.currentPage)?.backgroundUri,
-            mode = state.styleConfig.themeMode,
-            styleConfig = state.styleConfig
+            styleConfig = state.styleConfig,
+            appContext = context.applicationContext
         )
-        CompositionLocalProvider(LocalLauncherThemeTokens provides activePageTheme.tokens) {
+        CompositionLocalProvider(LocalLauncherThemeTokens provides activePageTheme.value.tokens) {
         AppDrawerScreen(
             viewModel = viewModel,
             installedApps = installedApps,

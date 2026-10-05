@@ -3,6 +3,41 @@ package com.daybreak.animelauncher.theming
 import androidx.annotation.ColorInt
 
 /**
+ * UI-1 Fase 3: overrides EXPLÍCITOS por elemento para AUTO_WITH_OVERRIDES.
+ *
+ * `null` = sin override (el elemento usa el color generado por AUTO).
+ * Un color no-null = el usuario fijó explícitamente ese elemento (nunca se
+ * interpreta un default heredado como override).
+ *
+ * Gson-safe: clase anidada con todos los campos con default; JSONs antiguos
+ * sin este objeto resuelven al default (sin overrides).
+ */
+data class AdaptiveColorOverrides(
+    val clockColor: String? = null,
+    val batteryColor: String? = null,
+    val messagesColor: String? = null,
+    val dateColor: String? = null
+)
+
+/**
+ * UI-1 Fase 3: colores resueltos por elemento, listos para consumo por
+ * ViewOne/ViewTwo. El engine los deriva según el modo:
+ * - MANUAL: desde AdvancedStyleConfig (paridad exacta).
+ * - AUTO: desde los tokens generados (textPrimary/textSecondary/accent/textOnAccent).
+ * - AUTO_WITH_OVERRIDES: AUTO + overrides no-null por elemento.
+ */
+data class AdaptiveElementColors(
+    @get:ColorInt val clock: Int,
+    @get:ColorInt val battery: Int,
+    @get:ColorInt val messages: Int,
+    @get:ColorInt val weekday: Int,
+    @get:ColorInt val date: Int,
+    @get:ColorInt val icon: Int,
+    @get:ColorInt val miButton: Int,
+    @get:ColorInt val miText: Int
+)
+
+/**
  * UI-1 Fase 1: parámetros de glass premium asociados a una página.
  *
  * Los defaults equivalen al diseño actual (sidebar/diagonal/accent de AdvancedStyleConfig).
@@ -29,7 +64,8 @@ data class PageTheme(
     val tokens: LauncherThemeTokens,
     val glass: GlassParams,
     val palette: ThemePalette,
-    val isDark: Boolean
+    val isDark: Boolean,
+    val elementColors: AdaptiveElementColors
 )
 
 /**

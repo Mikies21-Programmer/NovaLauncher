@@ -6,6 +6,7 @@ import com.daybreak.animelauncher.hiddenapps.HiddenAppsConfig
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsCredentialStore
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsMigrator
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsPreferencesStore
+import com.daybreak.animelauncher.theming.AdaptiveColorOverrides
 import com.daybreak.animelauncher.theming.ThemeMode
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsRepository
 
@@ -107,7 +108,11 @@ data class AdvancedStyleConfig(
 
     // UI-1: modo de tema adaptativo. MANUAL = comportamiento histórico exacto
     // (default de todos los usuarios existentes; Gson-safe vía constructor no-arg).
-    val themeMode: ThemeMode = ThemeMode.MANUAL
+    val themeMode: ThemeMode = ThemeMode.MANUAL,
+
+    // UI-1 Fase 3: overrides EXPLÍCITOS por elemento (solo AUTO_WITH_OVERRIDES/AUTO).
+    // null = sin override; los defaults históricos NUNCA se interpretan como overrides.
+    val adaptiveOverrides: AdaptiveColorOverrides = AdaptiveColorOverrides()
 )
 
 data class DrawerCategory(

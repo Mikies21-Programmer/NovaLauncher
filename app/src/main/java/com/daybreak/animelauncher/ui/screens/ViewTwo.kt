@@ -69,6 +69,9 @@ fun ViewTwo(
     isEditMode: Boolean = false,
     onEnterEditMode: () -> Unit = {},
     onWidgetBoundsChanged: ((List<Rect>) -> Unit)? = null,
+    // UI-1 Fase 3: colores por elemento resueltos por AdaptiveThemeEngine (AUTO)
+    // o por AdvancedStyleConfig (MANUAL parity cuando es null).
+    elementColors: com.daybreak.animelauncher.theming.AdaptiveElementColors? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -86,6 +89,16 @@ fun ViewTwo(
             }
     ) {
         val style = viewModel?.state?.collectAsState()?.value?.styleConfig ?: AdvancedStyleConfig()
+        // UI-1 Fase 3: colores efectivos por elemento. AUTO (elementColors != null)
+        // usa tokens adaptativos; MANUAL/null conserva EXACTAMENTE AdvancedStyleConfig.
+        val effClock = elementColors?.let { androidx.compose.ui.graphics.Color(it.clock) } ?: style.clockColor.parseColorSafe()
+        val effBattery = elementColors?.let { androidx.compose.ui.graphics.Color(it.battery) } ?: style.batteryColor.parseColorSafe()
+        val effMessages = elementColors?.let { androidx.compose.ui.graphics.Color(it.messages) } ?: style.messagesColor.parseColorSafe()
+        val effWeekday = elementColors?.let { androidx.compose.ui.graphics.Color(it.weekday) } ?: style.dateColor.parseColorSafe()
+        val effDate = elementColors?.let { androidx.compose.ui.graphics.Color(it.date) } ?: style.dateColor.parseColorSafe()
+        val effIcon = elementColors?.let { androidx.compose.ui.graphics.Color(it.icon) } ?: style.customIconColor.parseColorSafe()
+        val effMiButton = elementColors?.let { androidx.compose.ui.graphics.Color(it.miButton) } ?: style.miButtonColor.parseColorSafe()
+        val effMiText = elementColors?.let { androidx.compose.ui.graphics.Color(it.miText) } ?: style.miTextColor.parseColorSafe()
         val w = maxWidth
         val h = maxHeight
         val sidebarWidth = w * 0.16f
@@ -171,7 +184,7 @@ fun ViewTwo(
                     val date = if (language == "es") SimpleDateFormat("d 'de' MMM", loc).format(Date()) else SimpleDateFormat("MMM d'th'", loc).format(Date())
                     Text(
                         text = dayOfWeek,
-                        color = style.dateColor.parseColorSafe(),
+                        color = effWeekday,
                         fontWeight = FontWeight.Light,
                         fontSize = (w * 0.12f).value.sp,
                         maxLines = 1,
@@ -179,7 +192,7 @@ fun ViewTwo(
                     )
                     Text(
                         text = date,
-                        color = style.dateColor.parseColorSafe().copy(alpha = 0.85f),
+                        color = effDate.copy(alpha = 0.85f),
                         fontWeight = FontWeight.Thin,
                         fontSize = (w * 0.069f).value.sp,
                         maxLines = 1,
@@ -215,7 +228,7 @@ fun ViewTwo(
                         shortcut = shortcut,
                         modifier = Modifier.size(iconSize),
                         defaultTint = style.triangleColor.parseColorSafe(),
-                        customIconTint = style.customIconColor.parseColorSafe(),
+                        customIconTint = effIcon,
                         onClick = {
                             if (shortcut.packageName != null) {
                                 try {
@@ -263,11 +276,11 @@ fun ViewTwo(
                 Box(
                     modifier = Modifier
                         .size(45.dp)
-                        .background(style.miButtonColor.parseColorSafe(), shape = androidx.compose.foundation.shape.CircleShape)
+                        .background(effMiButton, shape = androidx.compose.foundation.shape.CircleShape)
                         .clickable { onSettingsClick() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "mi", color = style.miTextColor.parseColorSafe(), fontWeight = FontWeight.Normal, fontSize = 16.sp)
+                    Text(text = "mi", color = effMiText, fontWeight = FontWeight.Normal, fontSize = 16.sp)
                 }
 
                 Spacer(modifier = Modifier.height(100.dp))
@@ -282,13 +295,13 @@ fun ViewTwo(
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         RealTimeClock(
-                            color = style.clockColor.parseColorSafe(),
+                            color = effClock,
                             fontSize = (w * 0.09f).coerceIn(24.dp, 36.dp).value.sp
                         )
                         Column(horizontalAlignment = Alignment.End) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RealTimeBattery(
-                                    color = style.batteryColor.parseColorSafe(),
+                                    color = effBattery,
                                     fontSize = (w * 0.035f).coerceIn(12.dp, 14.dp).value.sp,
                                     iconSize = 20.dp
                                 )
@@ -305,7 +318,7 @@ fun ViewTwo(
                                 text = msgText,
                                 fontWeight = FontWeight.Thin,
                                 fontSize = (w * 0.0318f).coerceIn(10.6.dp, 12.72.dp).value.sp,
-                                color = style.messagesColor.parseColorSafe(),
+                                color = effMessages,
                                 maxLines = 1,
                                 softWrap = false,
                                 modifier = Modifier.clickable {
@@ -328,7 +341,7 @@ fun ViewTwo(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // Separator (horizontal line)
-                Box(modifier = Modifier.width(24.dp).height(2.dp).background(style.miButtonColor.parseColorSafe().copy(alpha = 0.5f)))
+                Box(modifier = Modifier.width(24.dp).height(2.dp).background(effMiButton.copy(alpha = 0.5f)))
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -347,8 +360,8 @@ fun ViewTwo(
                         ShortcutIcon(
                             shortcut = shortcut,
                             modifier = Modifier.size(38.dp),
-                            defaultTint = style.miButtonColor.parseColorSafe(),
-                            customIconTint = style.customIconColor.parseColorSafe(),
+                            defaultTint = effMiButton,
+                            customIconTint = effIcon,
                             onClick = {
                                 if (shortcut.packageName != null) {
                                     try {
