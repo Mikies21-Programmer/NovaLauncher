@@ -130,10 +130,17 @@ object AdaptiveThemeEngine {
             baseElements
         }
 
-        // Scrim simple y determinista: superficie de la propuesta, alpha derivado
-        // de la luminancia media (más scrim en fondos claros para texto oscuro y
-        // viceversa — el generador garantiza el par texto/superficie).
-        val scrimAlpha = if (palette.averageLuminance >= 0.5f) 0.55f else 0.45f
+        // Glass premium adaptativo: scrim derivado de la paleta (fórmula
+        // determinista: luminancia media + complejidad/varianza entre swatches).
+        // - Base 0.40 (superficie de lectura estable).
+        // - +0.30 × complejidad (fondos multicolor exigen más scrim).
+        // - +0.15 × desvío de luminancia respecto del medio (extremos oscuros/
+        //   claros necesitan más superficie para mantener el par de contraste).
+        // Tope 0.65 para no opacar el fondo. El generador garantiza el par
+        // textPrimary/textSecondary vs superficie >= 4.5/3.0:1.
+        val complexity = paletteComplexity(palette)
+        val scrimAlpha = (0.40f + 0.30f * complexity +
+            0.15f * kotlin.math.abs(palette.averageLuminance - 0.5f)).coerceIn(0.40f, 0.65f)
         val glass = GlassParams(
             scrimColor = tokens.surfaceColor,
             scrimAlpha = scrimAlpha,
@@ -142,7 +149,12 @@ object AdaptiveThemeEngine {
             borderColor = tokens.accentColor,
             borderAlpha = styleConfig.glassBorderAlpha,
             highlightColor = tokens.accentColor,
-            cornerRadius = styleConfig.cornerRadius
+            cornerRadius = styleConfig.cornerRadius,
+            gradientAlpha = 0.5f,
+            highlightAlpha = 0.35f,
+            glowColor = tokens.accentColor,
+            glowAlpha = 0.10f,
+            adaptive = true
         )
         return PageTheme(
             pageIndex = pageIndex,
@@ -152,6 +164,23 @@ object AdaptiveThemeEngine {
             isDark = proposal.isDark,
             elementColors = elements
         )
+    }
+
+    /**
+     * Complejidad/varianza perceptual aproximada de la paleta (0..1): distancia
+     * Manhattan normalizada entre los swatches dominant/vibrant/muted. Fondos
+     * multicolor → mayor valor → más scrim de lectura.
+     */
+    fun paletteComplexity(palette: ThemePalette): Float {
+        fun dist(c1: Int, c2: Int): Float {
+            val dr = kotlin.math.abs((c1 ushr 16 and 0xFF) - (c2 ushr 16 and 0xFF))
+            val dg = kotlin.math.abs((c1 ushr 8 and 0xFF) - (c2 ushr 8 and 0xFF))
+            val db = kotlin.math.abs((c1 and 0xFF) - (c2 and 0xFF))
+            return (dr + dg + db) / 765f
+        }
+        val d1 = dist(palette.dominantColor, palette.vibrantColor)
+        val d2 = dist(palette.vibrantColor, palette.mutedColor)
+        return ((d1 + d2) / 2f).coerceIn(0f, 1f)
     }
 
     /** Aplica solo los overrides explícitos (no-null); el resto queda AUTO. */

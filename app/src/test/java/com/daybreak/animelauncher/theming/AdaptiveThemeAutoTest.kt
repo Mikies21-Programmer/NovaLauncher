@@ -269,6 +269,100 @@ class AdaptiveThemeAutoTest {
     }
 
     // =========================================================================
+    // UI-1 FASE 4: Glass Premium adaptativo (A-L)
+    // =========================================================================
+
+    private fun glassOf(palette: ThemePalette): GlassParams =
+        AdaptiveThemeEngine.buildAutoPageTheme(0, palette, config.copy(themeMode = ThemeMode.AUTO)).glass
+
+    /** A+B+C. Parámetros de glass siempre en rangos válidos. */
+    @Test
+    fun test13_Glass_ScrimAlphaEnRangoValido() {
+        for (palette in listOf(darkPalette, lightPalette, saturatedPalette)) {
+            val g = glassOf(palette)
+            assertTrue("scrimAlpha=${g.scrimAlpha}", g.scrimAlpha in 0.40f..0.65f)
+            assertTrue("gradientAlpha=${g.gradientAlpha}", g.gradientAlpha in 0f..1f)
+            assertTrue("borderAlpha=${g.borderAlpha}", g.borderAlpha in 0f..1f)
+            assertTrue("highlightAlpha=${g.highlightAlpha}", g.highlightAlpha in 0f..1f)
+            assertTrue("glowAlpha=${g.glowAlpha}", g.glowAlpha in 0f..1f)
+            assertTrue("adaptive debe ser true en AUTO", g.adaptive)
+        }
+    }
+
+    /** D+E. Fórmula determinista del scrim: luminancia + complejidad. */
+    @Test
+    fun test14_ScrimDerivado_DeLuminanciaYComplejidad() {
+        // Fórmula: 0.40 + 0.30*complejidad + 0.15*|lum-0.5| (clamp 0.40..0.65)
+        val complexityDark = AdaptiveThemeEngine.paletteComplexity(darkPalette)
+        val expectedDark = (0.40f + 0.30f * complexityDark +
+            0.15f * kotlin.math.abs(darkPalette.averageLuminance - 0.5f)).coerceIn(0.40f, 0.65f)
+        assertEquals(expectedDark, glassOf(darkPalette).scrimAlpha)
+
+        // A mayor complejidad (varianza entre swatches), mayor scrim.
+        val lowComplexity = ThemePalette(
+            0xFF202830.toInt(), 0xFF2A3240.toInt(), 0xFF181C24.toInt(), true, 0.1f
+        )
+        val highComplexity = ThemePalette(
+            0xFFD32F2F.toInt(), 0xFF3D5AFE.toInt(), 0xFFF5F5F5.toInt(), true, 0.3f
+        )
+        val cLow = AdaptiveThemeEngine.paletteComplexity(lowComplexity)
+        val cHigh = AdaptiveThemeEngine.paletteComplexity(highComplexity)
+        assertTrue("complejidad alta > baja ($cHigh vs $cLow)", cHigh > cLow)
+        assertTrue("scrim escala con la complejidad", glassOf(highComplexity).scrimAlpha > glassOf(lowComplexity).scrimAlpha)
+    }
+
+    /** F. textPrimary mantiene >= 4.5:1 sobre la superficie del glass. */
+    @Test
+    fun test15_Glass_TextPrimaryContrastSobreScrim() {
+        for (palette in listOf(darkPalette, lightPalette, saturatedPalette)) {
+            val page = AdaptiveThemeEngine.buildAutoPageTheme(0, palette, config.copy(themeMode = ThemeMode.AUTO))
+            val ratio = calculateContrastRatio(
+                page.tokens.textPrimaryColor, page.glass.scrimColor
+            )
+            assertTrue("textPrimary vs scrim >= 4.5:1, ratio=$ratio", ratio >= 4.5f)
+        }
+    }
+
+    /** G. textSecondary >= 3:1 sobre la superficie del glass. */
+    @Test
+    fun test16_Glass_TextSecondaryContrastSobreScrim() {
+        for (palette in listOf(darkPalette, lightPalette, saturatedPalette)) {
+            val page = AdaptiveThemeEngine.buildAutoPageTheme(0, palette, config.copy(themeMode = ThemeMode.AUTO))
+            val ratio = calculateContrastRatio(
+                page.tokens.textSecondaryColor, page.glass.scrimColor
+            )
+            assertTrue("textSecondary vs scrim >= 3:1, ratio=$ratio", ratio >= 3f)
+        }
+    }
+
+    /** H+K. Misma paleta → mismos GlassParams (determinista). */
+    @Test
+    fun test17_GlassDeterministaPorPaleta() {
+        assertEquals(glassOf(darkPalette), glassOf(darkPalette))
+        assertEquals(glassOf(lightPalette), glassOf(lightPalette))
+    }
+
+    /** I. MANUAL conserva comportamiento: glass no-adaptativo con valores del style. */
+    @Test
+    fun test18_Manual_GlassLegacySinAdaptacion() {
+        val page = AdaptiveThemeEngine.resolve(0, null, ThemeMode.MANUAL, config)
+        assertFalse("MANUAL no debe activar el glass premium", page.glass.adaptive)
+        assertEquals(config.sidebarOpacity, page.glass.scrimAlpha)
+        assertEquals(config.cornerRadius, page.glass.cornerRadius)
+    }
+
+    /** J. Cambio de URI no reutiliza el glass de otro fondo. */
+    @Test
+    fun test19_CambioUri_NoReutilizaGlass() {
+        val dark = engineResolve("img://dark", FakeLoader("img://dark" to darkPalette))
+        val light = engineResolve("img://light", FakeLoader("img://light" to lightPalette))
+        assertNotEquals(dark.glass.scrimAlpha, light.glass.scrimAlpha)
+        // El glass de cada URI se deriva de SU paleta (no del cache del otro).
+        assertEquals(glassOf(darkPalette), dark.glass)
+        assertEquals(glassOf(lightPalette), light.glass)
+    }
+
+    // =========================================================================
     // Overrides con el modo MANUAL: ignorados (paridad manda)
     // =========================================================================
 

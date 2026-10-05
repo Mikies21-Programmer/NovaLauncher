@@ -37,6 +37,7 @@ import com.daybreak.animelauncher.ui.components.DynamicBackground
 import com.daybreak.animelauncher.ui.components.NativeWidgetView
 import com.daybreak.animelauncher.ui.components.RealTimeBattery
 import com.daybreak.animelauncher.ui.components.RealTimeClock
+import com.daybreak.animelauncher.theming.glassPremium
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
 import com.daybreak.animelauncher.ui.theme.parseColorSafe
 import androidx.compose.ui.geometry.Rect
@@ -63,6 +64,8 @@ fun ViewOne(
     // UI-1 Fase 3: colores por elemento resueltos por AdaptiveThemeEngine (AUTO)
     // o por AdvancedStyleConfig (MANUAL parity cuando es null).
     elementColors: com.daybreak.animelauncher.theming.AdaptiveElementColors? = null,
+    // UI-1 Fase 4: glass premium adaptativo (null/legacy = paridad MANUAL).
+    glass: com.daybreak.animelauncher.theming.GlassParams? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -307,7 +310,15 @@ fun ViewOne(
                 .fillMaxHeight()
                 .width(sidebarWidth)
                 .align(Alignment.CenterEnd)
-                .background(style.sidebarColor.parseColorSafe().copy(alpha = style.sidebarOpacity))
+.then(
+                        if (glass?.adaptive == true) {
+                            Modifier.glassPremium(glass)
+                        } else {
+                            Modifier.background(
+                                style.sidebarColor.parseColorSafe().copy(alpha = style.sidebarOpacity)
+                            )
+                        }
+                    )
                 .padding(vertical = 40.dp),
             contentAlignment = Alignment.TopCenter
         ) {

@@ -51,7 +51,14 @@ data class GlassParams(
     @get:ColorInt val borderColor: Int,
     val borderAlpha: Float,
     @get:ColorInt val highlightColor: Int,
-    val cornerRadius: Float
+    val cornerRadius: Float,
+    // UI-1 Fase 4: capas de glass premium.
+    val gradientAlpha: Float = 0f,
+    val highlightAlpha: Float = 0f,
+    @get:ColorInt val glowColor: Int = 0,
+    val glowAlpha: Float = 0f,
+    // true = glass premium adaptativo (AUTO); false = legacy (paridad MANUAL).
+    val adaptive: Boolean = false
 )
 
 /**

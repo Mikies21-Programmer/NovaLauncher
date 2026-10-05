@@ -645,6 +645,7 @@ fun LauncherScreen(
                 onEnterEditMode = { isWidgetEditMode = true },
                 onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
                 elementColors = pageTheme.value.elementColors,
+                glass = pageTheme.value.glass,
                 modifier = modifier
             )
         } else {
@@ -662,6 +663,7 @@ fun LauncherScreen(
                 onEnterEditMode = { isWidgetEditMode = true },
                 onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
                 elementColors = pageTheme.value.elementColors,
+                glass = pageTheme.value.glass,
                 modifier = modifier
             )
         }
