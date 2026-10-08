@@ -90,6 +90,50 @@ object VideoFrameExtractor {
         frames
     }
 
+    // =========================================================================
+    // UI-1 Fase 5: extracción de UN frame para sampling periódico del tema AUTO
+    // (aditivo; las funciones existentes permanecen intactas).
+    // =========================================================================
+
+    /** Extrae la duración del video en ms (null si no se puede leer). */
+    suspend fun videoDurationMs(
+        context: Context,
+        videoUri: Uri,
+        dispatcher: CoroutineDispatcher = Dispatchers.IO
+    ): Long? = withContext(dispatcher) {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, videoUri)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+        } catch (_: Exception) {
+            null
+        } finally {
+            try { retriever.release() } catch (_: Throwable) {}
+        }
+    }
+
+    /**
+     * Extrae UN frame escalado (~[TARGET_MAX_DIMENSION]) en la posición [positionMs].
+     * Retorna null ante cualquier fallo. El llamador es dueño del bitmap devuelto
+     * (debe reciclarlo tras analizarlo).
+     */
+    suspend fun extractFrameAt(
+        context: Context,
+        videoUri: Uri,
+        positionMs: Long,
+        dispatcher: CoroutineDispatcher = Dispatchers.IO
+    ): Bitmap? = withContext(dispatcher) {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, videoUri)
+            extractScaledFrame(retriever, positionMs * 1000L, TARGET_MAX_DIMENSION)
+        } catch (_: Exception) {
+            null
+        } finally {
+            try { retriever.release() } catch (_: Throwable) {}
+        }
+    }
+
     /**
      * Extrae un frame en el tiempo [timeUs] escalado directamente si la versión de Android lo permite (API 27+),
      * o escala inmediatamente el bitmap resultante para evitar retener frames en resolución nativa (4K / 1080p).

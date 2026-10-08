@@ -11,6 +11,7 @@ import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthMode
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsAuthenticator
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsFlowState
 import com.daybreak.animelauncher.theming.AdaptiveThemeEngine
+import com.daybreak.animelauncher.theming.PageTheme
 import com.daybreak.animelauncher.theming.rememberAdaptivePageTheme
 import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsAuthDialog
 import com.daybreak.animelauncher.ui.screens.hiddenapps.HiddenAppsScreen
@@ -123,6 +124,7 @@ fun LauncherScreen(
     }
     val installedApps by viewModel.installedApps.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val resolvedPageThemes = remember { androidx.compose.runtime.mutableStateMapOf<Int, PageTheme>() }
 
     val currentNavState by rememberUpdatedState(navState)
     val currentWidgetEditMode by rememberUpdatedState(isWidgetEditMode)
@@ -620,13 +622,28 @@ fun LauncherScreen(
 
         val isEs = state.language == "es"
 
-        // UI-1 Fase 2: tema resuelto POR PÁGINA (MANUAL parity: mismos colores que
+        // UI-1 Fase 5: app en foreground (para el ciclo de vida del sampling de video)
+    var isAppForeground by remember { mutableStateOf(true) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            isAppForeground = event == androidx.lifecycle.Lifecycle.Event.ON_START ||
+                event == androidx.lifecycle.Lifecycle.Event.ON_RESUME
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
+    // UI-1 Fase 2: tema resuelto POR PÁGINA (MANUAL parity: mismos colores que
         // AdvancedStyleConfig). En Fase 3 AUTO resolverá desde el fondo de esta página.
         val pageTheme = rememberAdaptivePageTheme(
             pageIndex = page,
             backgroundUri = viewConfig.backgroundUri,
             styleConfig = state.styleConfig,
-            appContext = context.applicationContext
+            appContext = context.applicationContext,
+            isPageVisible = (pagerState.currentPage == page),
+            isAppForeground = isAppForeground,
+            onResolved = { resolvedPageThemes[page] = it }
         )
 
         CompositionLocalProvider(LocalLauncherThemeTokens provides pageTheme.value.tokens) {
@@ -1114,13 +1131,18 @@ fun LauncherScreen(
         )
     ) {
         // UI-1 Fase 2: el Drawer global consume el tema de la PÁGINA ACTIVA.
-        val activePageTheme = rememberAdaptivePageTheme(
-            pageIndex = pagerState.currentPage,
-            backgroundUri = state.viewConfigs.getOrNull(pagerState.currentPage)?.backgroundUri,
-            styleConfig = state.styleConfig,
-            appContext = context.applicationContext
-        )
-        CompositionLocalProvider(LocalLauncherThemeTokens provides activePageTheme.value.tokens) {
+        // UI-1 Fase 5: el Drawer consume el tema RESUELTO de la página activa (del map
+        // compartido; evita duplicar samplers). Fallback sync si aún no resolvió.
+        val drawerFallback = remember(pagerState.currentPage, state.styleConfig) {
+            AdaptiveThemeEngine.resolve(
+                pageIndex = pagerState.currentPage,
+                backgroundUri = state.viewConfigs.getOrNull(pagerState.currentPage)?.backgroundUri,
+                mode = state.styleConfig.themeMode,
+                styleConfig = state.styleConfig
+            )
+        }
+        val activePageTheme = resolvedPageThemes[pagerState.currentPage] ?: drawerFallback
+        CompositionLocalProvider(LocalLauncherThemeTokens provides activePageTheme.tokens) {
         AppDrawerScreen(
             viewModel = viewModel,
             installedApps = installedApps,
