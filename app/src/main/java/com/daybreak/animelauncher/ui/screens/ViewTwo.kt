@@ -75,6 +75,8 @@ fun ViewTwo(
     elementColors: com.daybreak.animelauncher.theming.AdaptiveElementColors? = null,
     // UI-1 Fase 4: glass premium adaptativo (null/legacy = paridad MANUAL).
     glass: com.daybreak.animelauncher.theming.GlassParams? = null,
+    // UI-1 Fase 6: tokens del tema de la página (logo adaptable); null = derivado de config.
+    pageTokens: com.daybreak.animelauncher.theming.LauncherThemeTokens? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -101,7 +103,6 @@ fun ViewTwo(
         val effDate = elementColors?.let { androidx.compose.ui.graphics.Color(it.date) } ?: style.dateColor.parseColorSafe()
         val effIcon = elementColors?.let { androidx.compose.ui.graphics.Color(it.icon) } ?: style.customIconColor.parseColorSafe()
         val effMiButton = elementColors?.let { androidx.compose.ui.graphics.Color(it.miButton) } ?: style.miButtonColor.parseColorSafe()
-        val effMiText = elementColors?.let { androidx.compose.ui.graphics.Color(it.miText) } ?: style.miTextColor.parseColorSafe()
         val w = maxWidth
         val h = maxHeight
         val sidebarWidth = w * 0.16f
@@ -284,15 +285,13 @@ fun ViewTwo(
                 modifier = Modifier.fillMaxHeight()
             ) {
                 // Top Logo "mi"
-                Box(
-                    modifier = Modifier
-                        .size(45.dp)
-                        .background(effMiButton, shape = androidx.compose.foundation.shape.CircleShape)
-                        .clickable { onSettingsClick() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "mi", color = effMiText, fontWeight = FontWeight.Normal, fontSize = 16.sp)
-                }
+                com.daybreak.animelauncher.theming.LauncherLogo(
+                    spec = com.daybreak.animelauncher.theming.LauncherLogoResolver.resolve(
+                        style,
+                        pageTokens ?: com.daybreak.animelauncher.theming.LauncherThemeTokens.fromAdvancedStyleConfig(style)
+                    ),
+                    onClick = onSettingsClick
+                )
 
                 Spacer(modifier = Modifier.height(100.dp))
 
