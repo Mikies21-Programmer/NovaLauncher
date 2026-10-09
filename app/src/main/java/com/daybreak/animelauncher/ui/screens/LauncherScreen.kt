@@ -663,6 +663,7 @@ fun LauncherScreen(
                 onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
                 elementColors = pageTheme.value.elementColors,
                 glass = pageTheme.value.glass,
+                pageTokens = pageTheme.value.tokens,
                 modifier = modifier
             )
         } else {
@@ -681,6 +682,7 @@ fun LauncherScreen(
                 onWidgetBoundsChanged = { pageWidgetBoundsMap[page] = it },
                 elementColors = pageTheme.value.elementColors,
                 glass = pageTheme.value.glass,
+                pageTokens = pageTheme.value.tokens,
                 modifier = modifier
             )
         }

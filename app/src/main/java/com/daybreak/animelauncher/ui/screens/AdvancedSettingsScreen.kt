@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +24,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daybreak.animelauncher.AdvancedStyleConfig
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.OutlinedTextField
 import com.daybreak.animelauncher.theming.LauncherThemeTokens
 import com.daybreak.animelauncher.theming.LocalLauncherThemeTokens
 import com.daybreak.animelauncher.ui.components.DynamicBackground
@@ -295,6 +302,117 @@ fun AdvancedSettingsScreen(
                             },
                             onValueChangeFinished = { onPersist(currentStyle) }
                         )
+                    }
+                }
+
+                // UI-1 Fase 6: Logo configurable (modo / texto / icono)
+                item {
+                    GlassCard {
+                        var logoTextDraft by androidx.compose.runtime.remember {
+                            androidx.compose.runtime.mutableStateOf(currentStyle.logoText)
+                        }
+                        val logoError = com.daybreak.animelauncher.theming.logoTextError(logoTextDraft, isEs)
+                        val logoCount = logoTextDraft.length
+
+                        Text(
+                            text = if (isEs) "Logo del Launcher" else "Launcher Logo",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val modes: List<Triple<String, com.daybreak.animelauncher.theming.LogoMode, androidx.compose.ui.graphics.vector.ImageVector>> = listOf(
+                                Triple("Icono", com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY, Icons.Outlined.AutoAwesome),
+                                Triple("Texto", com.daybreak.animelauncher.theming.LogoMode.TEXT_ONLY, Icons.Outlined.TextFields),
+                                Triple("Ambos", com.daybreak.animelauncher.theming.LogoMode.ICON_PLUS_TEXT, Icons.Outlined.AutoAwesome)
+                            )
+                            modes.forEach { (label, mode, _) ->
+                                val selected = currentStyle.logoMode == mode
+                                Text(
+                                    text = label,
+                                    color = if (selected) Color(0xFF050508) else Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier
+                                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                        .background(if (selected) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.08f))
+                                        .clickable {
+                                            currentStyle = currentStyle.copy(logoMode = mode)
+                                            onPersist(currentStyle)
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (currentStyle.logoMode != com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY) {
+                            OutlinedTextField(
+                                value = logoTextDraft,
+                                onValueChange = { input ->
+                                    logoTextDraft = input
+                                    if (com.daybreak.animelauncher.theming.logoTextError(input, isEs) == null) {
+                                        val sanitized = com.daybreak.animelauncher.theming.sanitizeLogoText(input)
+                                        currentStyle = currentStyle.copy(logoText = sanitized)
+                                        onPersist(currentStyle)
+                                    }
+                                },
+                                isError = logoError != null,
+                                label = { Text(if (isEs) "Texto del logo" else "Logo text") },
+                                supportingText = {
+                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            text = logoError ?: "",
+                                            color = Color(0xFFFF5252),
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Text(
+                                            text = "$logoCount/10",
+                                            color = if (logoCount > 10) Color(0xFFFF5252) else Color.White.copy(alpha = 0.5f),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        Text(
+                            text = if (isEs) "Icono" else "Icon",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            com.daybreak.animelauncher.theming.LogoCatalog.KEYS.forEach { key ->
+                                val vector = com.daybreak.animelauncher.theming.LogoCatalog.vector(key)
+                                val selected = currentStyle.logoIcon == key
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                        .background(if (selected) Color(0xFF00F0FF).copy(alpha = 0.25f) else Color.White.copy(alpha = 0.06f))
+                                        .clickable {
+                                            currentStyle = currentStyle.copy(logoIcon = key)
+                                            onPersist(currentStyle)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = vector,
+                                        contentDescription = key,
+                                        tint = if (selected) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

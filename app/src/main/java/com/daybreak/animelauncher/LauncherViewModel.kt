@@ -112,7 +112,13 @@ data class AdvancedStyleConfig(
 
     // UI-1 Fase 3: overrides EXPLÍCITOS por elemento (solo AUTO_WITH_OVERRIDES/AUTO).
     // null = sin override; los defaults históricos NUNCA se interpretan como overrides.
-    val adaptiveOverrides: AdaptiveColorOverrides = AdaptiveColorOverrides()
+    val adaptiveOverrides: AdaptiveColorOverrides = AdaptiveColorOverrides(),
+
+    // UI-1 Fase 6: logo configurable. MANUAL conserva el color histórico del
+    // círculo vía tokens (accent = accentColor del usuario); texto vacío = sin texto.
+    val logoMode: com.daybreak.animelauncher.theming.LogoMode = com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY,
+    val logoIcon: String = com.daybreak.animelauncher.theming.LogoCatalog.DEFAULT_ICON,
+    val logoText: String = ""
 )
 
 data class DrawerCategory(
@@ -329,11 +335,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                         // UI-1: normalización defensiva de themeMode — Gson puede dejar el
                         // enum null en JSONs de versiones antiguas (campo ausente) o corruptos.
                         @Suppress("SENSELESS_COMPARISON")
-                        val safeStyle = if (loadedStyle.themeMode == null) {
-                            loadedStyle.copy(themeMode = ThemeMode.MANUAL)
-                        } else {
-                            loadedStyle
-                        }
+                        // UI-1: normalización defensiva — Gson puede dejar enums/strings
+                        // null en JSONs antiguos (campos ausentes) o corruptos.
+                        val safeStyle = loadedStyle.copy(
+                            themeMode = loadedStyle.themeMode ?: ThemeMode.MANUAL,
+                            logoMode = loadedStyle.logoMode ?: com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY,
+                            logoIcon = loadedStyle.logoIcon ?: com.daybreak.animelauncher.theming.LogoCatalog.DEFAULT_ICON,
+                            logoText = loadedStyle.logoText ?: ""
+                        )
                         state = state.copy(styleConfig = safeStyle)
                     }
                 } catch (e: Exception) {
