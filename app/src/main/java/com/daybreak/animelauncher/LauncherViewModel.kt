@@ -118,7 +118,11 @@ data class AdvancedStyleConfig(
     // círculo vía tokens (accent = accentColor del usuario); texto vacío = sin texto.
     val logoMode: com.daybreak.animelauncher.theming.LogoMode = com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY,
     val logoIcon: String = com.daybreak.animelauncher.theming.LogoCatalog.DEFAULT_ICON,
-    val logoText: String = ""
+    val logoText: String = "",
+
+    // UI-1 Fase 7: indicador de RAM global en el sidebar. Default false
+    // retrocompatible (la UI de usuarios existentes no cambia hasta activarlo).
+    val showRamWidget: Boolean = false
 )
 
 data class DrawerCategory(
@@ -341,7 +345,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             themeMode = loadedStyle.themeMode ?: ThemeMode.MANUAL,
                             logoMode = loadedStyle.logoMode ?: com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY,
                             logoIcon = loadedStyle.logoIcon ?: com.daybreak.animelauncher.theming.LogoCatalog.DEFAULT_ICON,
-                            logoText = loadedStyle.logoText ?: ""
+                            logoText = loadedStyle.logoText ?: "",
+                            // showRamWidget es Boolean primitivo: Gson no puede dejarlo
+                            // null (missing field → default false del no-arg ctor).
+                            showRamWidget = loadedStyle.showRamWidget
                         )
                         state = state.copy(styleConfig = safeStyle)
                     }

@@ -416,6 +416,45 @@ fun AdvancedSettingsScreen(
                     }
                 }
 
+                // UI-1 Fase 7: control mostrar/ocultar indicador de RAM global
+                // (sección mínima; la integración completa de Advanced Theme queda
+                // para la fase posterior de Advanced Settings).
+                item {
+                    GlassCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isEs) "Indicador de RAM (global)" else "RAM Indicator (global)",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = if (isEs) "Muestra la RAM usada/total del teléfono en la barra lateral"
+                                           else "Shows used/total phone RAM in the sidebar",
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(
+                                checked = currentStyle.showRamWidget,
+                                onCheckedChange = { checked ->
+                                    currentStyle = currentStyle.copy(showRamWidget = checked)
+                                    onPersist(currentStyle)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = Color(0xFF00F0FF),
+                                    checkedThumbColor = Color(0xFF050508)
+                                )
+                            )
+                        }
+                    }
+                }
+
                 // Sección 1: Colores de Elementos Individuales
                 item {
                     Text(
