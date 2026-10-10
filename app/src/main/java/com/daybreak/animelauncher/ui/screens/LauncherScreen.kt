@@ -664,6 +664,7 @@ fun LauncherScreen(
                 elementColors = pageTheme.value.elementColors,
                 glass = pageTheme.value.glass,
                 pageTokens = pageTheme.value.tokens,
+                ramPollActive = isAppForeground && pagerState.currentPage == page,
                 modifier = modifier
             )
         } else {
@@ -683,6 +684,7 @@ fun LauncherScreen(
                 elementColors = pageTheme.value.elementColors,
                 glass = pageTheme.value.glass,
                 pageTokens = pageTheme.value.tokens,
+                ramPollActive = isAppForeground && pagerState.currentPage == page,
                 modifier = modifier
             )
         }

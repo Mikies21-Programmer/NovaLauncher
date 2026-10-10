@@ -1,0 +1,46 @@
+Calculating task graph as configuration cache cannot be reused because environment variable 'JAVA_HOME' has changed.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugRFile UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:generateDebugLintReportModel
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:lintAnalyzeDebug
+> Task :app:lintAnalyzeDebugUnitTest
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///C:/Users/migue/AndroidStudioProjects/AnimeLauncher/app/build/reports/lint-results-debug.html
+Wrote SARIF report to file:///C:/Users/migue/AndroidStudioProjects/AnimeLauncher/app/build/reports/lint-results-debug.sarif
+Lint found 80 warnings, 6 hints
+
+Note: The baseline was created using a different target/variant than it was checked against.
+Creation variant: lintVitalRelease
+Current variant: lint
+
+> Task :app:lintDebug
+
+BUILD SUCCESSFUL in 1m 32s
+27 actionable tasks: 8 executed, 19 up-to-date
+Configuration cache entry stored.

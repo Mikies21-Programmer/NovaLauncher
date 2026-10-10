@@ -68,6 +68,9 @@ fun ViewOne(
     glass: com.daybreak.animelauncher.theming.GlassParams? = null,
     // UI-1 Fase 6: tokens del tema de la página (logo adaptable); null = derivado de config.
     pageTokens: com.daybreak.animelauncher.theming.LauncherThemeTokens? = null,
+    // UI-1 Fase 7: true = página visible && launcher en foreground (habilita el
+    // polling del widget RAM; el widget solo se compone si style.showRamWidget).
+    ramPollActive: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -389,8 +392,26 @@ fun ViewOne(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.weight(1f))
+
+                // UI-1 Fase 7: indicador RAM global. Ubicación: ENTRE el spacer
+                // flexible y el separador. El status rotado (wrapContentSize
+                // unbounded + rotationZ) se extiende visualmente ~2x su placeholder
+                // de layout por debajo — defecto latente que antes era inocuo porque
+                // solo le seguía un spacer flexible; colocar el RAM inmediatamente
+                // después del status solapaba el texto (validado físicamente).
+                // Anclado al separador consume el espacio libre SIN overlap y sin
+                // mover logo/status/separador/accesos. Polling solo con página
+                // visible + foreground.
+                if (style.showRamWidget) {
+                    com.daybreak.animelauncher.ui.components.RealTimeRam(
+                        pollActive = ramPollActive,
+                        tokens = effLogoTokens,
+                        language = language
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
                 
                 // Separator (horizontal line)
                 Box(modifier = Modifier.width(24.dp).height(2.dp).background(effMiButton.copy(alpha = 0.5f)))
