@@ -475,8 +475,6 @@ metodológico clave de esta sesión).
 Los estados abajo distinguen evidencia objetiva recogida por el agente (mediciones, prefs, píxeles,
 logcat) de la aceptación visual pendiente.
 
-### 14.1 Matriz de resultados P-01..P-09
-
 ### 14.1 Matriz de resultados P-01..P-09 (Validación Física y Aceptación)
 
 | ID | Procedimiento resumido | Resultado real (objetivo) | Clasificación y Estado |
