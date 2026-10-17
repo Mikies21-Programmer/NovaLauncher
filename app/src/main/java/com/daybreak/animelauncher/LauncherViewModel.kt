@@ -125,6 +125,33 @@ data class AdvancedStyleConfig(
     val showRamWidget: Boolean = false
 )
 
+/**
+ * UI-1 Fase 8A: normalización defensiva del estilo cargado por Gson. Función pura
+ * extraída de loadState() para poder testearla sin Android (AdaptiveThemeSettingsTest).
+ *
+ * El constructor no-arg de AdvancedStyleConfig (todos los campos con default) preserva
+ * los defaults de los campos AUSENTES del JSON — pero Gson SÍ puede dejar un campo
+ * no-nulo en null cuando el JSON contiene un null explícito (prefs restauradas de
+ * backup/editadas a mano) o un nombre de enum corrupto. El engine consume
+ * adaptiveOverrides por acceso directo (applyOverrides en AdaptiveThemeEngine), así
+ * que un contenedor null sería NPE en AUTO/AUTO_WITH_OVERRIDES.
+ */
+@Suppress("SENSELESS_COMPARISON")
+internal fun normalizeLoadedStyle(loaded: AdvancedStyleConfig): AdvancedStyleConfig = loaded.copy(
+    themeMode = loaded.themeMode ?: ThemeMode.MANUAL,
+    logoMode = loaded.logoMode ?: com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY,
+    logoIcon = loaded.logoIcon ?: com.daybreak.animelauncher.theming.LogoCatalog.DEFAULT_ICON,
+    logoText = loaded.logoText ?: "",
+    // UI-1 Fase 8A: un JSON externo con "adaptiveOverrides": null dejaría el campo
+    // null (no-nulo en Kotlin) y copy() mismo lanzaría NPE → loadState() descartaría
+    // TODA la config de estilo en el catch genérico. Fallback: contenedor vacío
+    // (todas las excepciones null = colores automáticos).
+    adaptiveOverrides = loaded.adaptiveOverrides ?: AdaptiveColorOverrides(),
+    // showRamWidget es Boolean primitivo: Gson no puede dejarlo
+    // null (missing field → default false del no-arg ctor).
+    showRamWidget = loaded.showRamWidget
+)
+
 data class DrawerCategory(
     val id: String,
     val name: String,
@@ -336,21 +363,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 try {
                     val loadedStyle = gson.fromJson(styleJson, AdvancedStyleConfig::class.java)
                     if (loadedStyle != null) {
-                        // UI-1: normalización defensiva de themeMode — Gson puede dejar el
-                        // enum null en JSONs de versiones antiguas (campo ausente) o corruptos.
-                        @Suppress("SENSELESS_COMPARISON")
-                        // UI-1: normalización defensiva — Gson puede dejar enums/strings
-                        // null en JSONs antiguos (campos ausentes) o corruptos.
-                        val safeStyle = loadedStyle.copy(
-                            themeMode = loadedStyle.themeMode ?: ThemeMode.MANUAL,
-                            logoMode = loadedStyle.logoMode ?: com.daybreak.animelauncher.theming.LogoMode.ICON_ONLY,
-                            logoIcon = loadedStyle.logoIcon ?: com.daybreak.animelauncher.theming.LogoCatalog.DEFAULT_ICON,
-                            logoText = loadedStyle.logoText ?: "",
-                            // showRamWidget es Boolean primitivo: Gson no puede dejarlo
-                            // null (missing field → default false del no-arg ctor).
-                            showRamWidget = loadedStyle.showRamWidget
-                        )
-                        state = state.copy(styleConfig = safeStyle)
+                        // UI-1 Fase 8A: normalización defensiva extraída a función pura
+                        // testeable (normalizeLoadedStyle / AdaptiveThemeSettingsTest).
+                        state = state.copy(styleConfig = normalizeLoadedStyle(loadedStyle))
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
