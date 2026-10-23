@@ -24,3 +24,14 @@ keystore.properties
 
 # Kotlin daemon / build sessions
 .kotlin/
+
+# NL-AUD-002 — snapshots de preferencias reales del dispositivo
+# Alcance limitado a docs/assets/ y docs/evidence_p8/; no oculta recursos funcionales
+# ni fixtures de prueba saneados.
+docs/assets/*prefs*.xml
+docs/assets/p7-a.xml
+docs/assets/p7-light.xml
+docs/assets/p7-video.xml
+docs/assets/p7-working.xml
+docs/assets/phase8-*.xml
+docs/evidence_p8/

@@ -146,7 +146,7 @@ Capturas: `p7-live-3-postminecraft.png` (post-MC ejecución 1), `p7-vid-postmc-1
 
 ## 10. Capturas (`docs/assets/`)
 
-**Sesión 2026-10-09 (previa):** `phase7-00-default-off.png` (default OFF, 22:13) · `phase7-01-ram-image-auto.png` (ViewOne imagen AUTO, 22:30) · `phase7-02-ram-light-bg.png` / `phase7-03-ram-light-bg.png` (variantes fondo claro, 22:33/22:48) · `phase7-04-ram-video.png` (ViewTwo video AUTO, 22:52) · `phase7-05-hidden-textlogo-light.png` (TEXT logo + oculto, 23:08) · `phase7-05-light-ram-hidden.png` (oculto tras toggle, 23:15) · `phase7-picker*.png` / `phase7-pagecheck.png` (navegación de Settings/picker) · `p7-light.xml`, `p7-video.xml`, `p7-a.xml` (snapshots de config de prueba).
+**Sesión 2026-10-09 (previa):** `phase7-00-default-off.png` (default OFF, 22:13) · `phase7-01-ram-image-auto.png` (ViewOne imagen AUTO, 22:30) · `phase7-02-ram-light-bg.png` / `phase7-03-ram-light-bg.png` (variantes fondo claro, 22:33/22:48) · `phase7-04-ram-video.png` (ViewTwo video AUTO, 22:52) · `phase7-05-hidden-textlogo-light.png` (TEXT logo + oculto, 23:08) · `phase7-05-light-ram-hidden.png` (oculto tras toggle, 23:15) · `phase7-picker*.png` / `phase7-pagecheck.png` (navegación de Settings/picker) · tres snapshots de configuración de prueba (fondo claro, vídeo y configuración A), retirados del índice actual por contener datos del dispositivo; se conserva esta descripción técnica, no los XML.
 
 **Sesión 2026-10-10 (esta sesión):** `p7-live-1/2.png` (polling objetivo 6 s) · `p7-live-3-postminecraft.png` · `p7-vid-1.png` (estado transitorio documentado en §11) · `p7-vid-4.png` (RAM sobre video activo) · `p7-vid-postmc-1/3.png` · `p7-restored.png` (config restaurada) · `p7-gate1..4.log` (outputs completos de gates).
 
