@@ -396,7 +396,12 @@ object VideoWallpaperManager {
             // Mismo recurso multimedia ya cargado en este slot: re-bind de superficie
             val curPos = slot.player.currentPosition
             slot.player.seekTo(curPos)
-            if (slot.player.playbackState == Player.STATE_IDLE || slot.player.playerError != null) {
+            val resumeAction = evaluateVideoResumeAction(
+                assignedPage = slot.assignedPage,
+                playbackState = slot.player.playbackState,
+                hasPlayerError = slot.player.playerError != null
+            )
+            if (resumeAction == VideoResumeAction.REPREPARE_AND_PLAY) {
                 val startPos = savedPositions[uriKey] ?: 0L
                 if (startPos > 0) {
                     slot.player.seekTo(startPos)
@@ -476,16 +481,25 @@ object VideoWallpaperManager {
 
         val slots = listOfNotNull(slotA, slotB)
         for (slot in slots) {
-            if (slot.assignedPage != null) {
-                if (slot.player.playerError != null || slot.player.playbackState == Player.STATE_IDLE) {
+            val resumeAction = evaluateVideoResumeAction(
+                assignedPage = slot.assignedPage,
+                playbackState = slot.player.playbackState,
+                hasPlayerError = slot.player.playerError != null
+            )
+            when (resumeAction) {
+                VideoResumeAction.NO_OP -> {}
+                VideoResumeAction.REPREPARE_AND_PLAY -> {
                     val key = slot.currentUriKey
                     val pos = if (key != null) savedPositions[key] ?: 0L else 0L
                     if (pos > 0) {
                         slot.player.seekTo(pos)
                     }
                     slot.player.prepare()
+                    slot.player.playWhenReady = true
                 }
-                slot.player.playWhenReady = true
+                VideoResumeAction.RESUME_PLAYBACK -> {
+                    slot.player.playWhenReady = true
+                }
             }
         }
     }

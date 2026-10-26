@@ -1,7 +1,7 @@
 # Estado Persistente del Proyecto — NovaLauncher (Agent State)
 
 > **Documento maestro de sincronización, continuidad operativa y auditoría entre sesiones, Antigravity y Claude.**<br>
-> *Última actualización: 27 de septiembre de 2026 (Cierre HIDDEN-APPS-FIX-01 — Hardening & Validación Técnica).*<br>
+> *Última actualización: 25 de octubre de 2026 (NOVA-RESUME-FADE-01 y NOVA-VIDEO-RESUME-02: FIX APPLIED — PENDING DEVICE CONFIRMATION).*<br>
 > *Regla de seguridad estricta: CERO secretos, contraseñas, keystores ni claves privadas en este repositorio.*
 
 ---
@@ -19,6 +19,16 @@
 ---
 
 ## 2. Estado Oficial de Módulos y Fases
+
+### Tabla de Estado Oficial de Ciclo de Vida y Motion (NOVA-RESUME-FADE-01 / NOVA-VIDEO-RESUME-02)
+
+| Fase / Tarea | Alcance Técnico | Estado Oficial |
+| :--- | :--- | :---: |
+| **NOVA-RESUME-FADE-01** | Eliminación de Resume Fade (`resumeAlpha`, `hasBeenStopped`, `resumeAnimJobHolder`, `graphicsLayer` del Box raíz en `LauncherScreen.kt`), preservación fail-closed de Hidden Apps en `ON_STOP` vía función pura `shouldRevokeHiddenAppsSession()` y 7 pruebas unitarias nuevas | ⏳ **FIX APPLIED — PENDING DEVICE CONFIRMATION** |
+| **NOVA-VIDEO-RESUME-02** | Auditoría forense de reanudación de video, extracción de política pura de recuperación `evaluateVideoResumeAction` (recuperación determinista de STATE_IDLE, STATE_ENDED y playerError; preservación estricta sin reinicio de STATE_READY y STATE_BUFFERING) y 6 pruebas unitarias nuevas | ⏳ **FIX APPLIED — PENDING DEVICE CONFIRMATION** |
+| **NOVA-APP-DRAWER-ICONS-01** | Precalentamiento de iconos en segundo plano, coalescencia de solicitudes en vuelo, desacople de cancelación de composables, invalidación reactiva por ciclo de vida de paquetes, eliminación del fallback genérico blanco durante carga normal y 10 pruebas unitarias nuevas | ⏳ **FIX APPLIED — PENDING DEVICE CONFIRMATION** |
+
+---
 
 ### Tabla de Estado Oficial de Apps Ocultas (Hidden Apps)
 
@@ -479,10 +489,10 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 
 ## 10. Validaciones Automatizadas Consolidadas
 
-* `git diff --check`: **PASS** (0 errores de formato, fin de línea o sintaxis).
-* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (**127/127 pruebas unitarias aprobadas al 100%**: 62 suite base + 45 suite Apps Ocultas + 20 suite Migración y Aislamiento Backup).
-* `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado).
-* `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores).
+* `git diff --check`: **PASS** (0 errores de formato, fin de línea o sintaxis en código de producción).
+* `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (**259/259 pruebas unitarias aprobadas al 100%**: 236 suite base preexistente + 7 suite `LauncherLifecyclePolicyTest` + 6 suite `VideoResumeRecoveryPolicyTest` + 10 suite `IconCacheTest`).
+* `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado en `app\build\outputs\apk\debug\app-debug.apk`, 87,041,306 bytes, SHA-256: `7A2DA6D25406D90AD90005AB90C6FBB5EA4AD8F624F47EFAE11D12560A760578`).
+* `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores, 81 advertencias baseline preexistentes).
 * `.\gradlew.bat lintVitalRelease`: **BUILD SUCCESSFUL** (0 errores, 0 advertencias).
 * `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Minificación R8 y AAB generado en `app/build/outputs/bundle/release/app-release.aab`).
 * Suite de Benchmarks en Hardware Físico (`POCO X6 5G`): **PASS** (`StartupBenchmark` + `DrawerFrameBenchmark`).
@@ -492,15 +502,38 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 ## 11. Tareas Pendientes y Hoja de Ruta
 
 1. **HIDDEN-APPS-BACKUP-ISOLATION (Consolidada):** Batería de validación física en POCO X6 5G ejecutada exitosamente (P1, P2, P6, P10, P3, P4, P8, P9, C1, C2 aprobados; P5 D2D Xiaomi pendiente; P7 preexistente documentado).
-2. **Performance Engineering — Fase P2-04 (Composición / Layout):** Auditoría técnica y selección del próximo experimento A/B de optimización sobre los hotspots de composición restantes.
-3. **Estabilización de Video Resume (Independiente):** Diagnóstico y corrección de la re-vinculación de `TextureView` en `VideoWallpaperManager` al regresar de apps pesadas.
-4. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
-5. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.
-6. **Accesibilidad y Ficha de Tienda:** Preparar video demostrativo de accesibilidad para Play Console y activos gráficos finales.
+2. **NOVA-RESUME-FADE-01 (Validación Física en Hardware POCO X6 5G):** Confirmación física en dispositivo real de reanudación limpia sin fade de 100 ms ni Scaffold negro visible, preservación de animación de desbloqueo e integridad fail-closed de Apps Ocultas. Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**.
+3. **NOVA-VIDEO-RESUME-02 (Validación Física en Hardware POCO X6 5G):** Confirmación física tras apertura/cierre de apps multimedia pesadas (TikTok, Cámara, YouTube). El código garantiza recuperación ante estados rotos/ENDED/error sin causar parpadeos negros espurios; la detección de pérdida de presentación en códecs hardware sin error de Media3 permanece sujeta a validación empírica en dispositivo real. Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**.
+4. **NOVA-APP-DRAWER-ICONS-01 (Validación Física en Hardware POCO X6 5G):** Confirmación en dispositivo físico tras apertura inicial del cajón y desplazamiento vertical rápido. Ausencia total del icono genérico blanco de Android, renderizado inmediato de iconos precalentados y placeholders sutiles no intrusivos durante cargas asíncronas. Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**.
+5. **Performance Engineering — Fase P2-04 (Composición / Layout):** Auditoría técnica y selección del próximo experimento A/B de optimización sobre los hotspots de composición restantes.
+6. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
+7. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.
+8. **Accesibilidad y Ficha de Tienda:** Preparar video demostrativo de accesibilidad para Play Console y activos gráficos finales.
 
 ---
 
 ## 12. Registro de Versiones y Changelog
+
+### Versión 1.6 (versionCode = 8) — 25 de octubre de 2026
+* **Carga y Estabilización de Iconos en App Drawer (NOVA-APP-DRAWER-ICONS-01) — FIX APPLIED — PENDING DEVICE CONFIRMATION:**
+  - **Precalentamiento en Segundo Plano (`preloadIcons`):** Al detectar o refrescar la lista de aplicaciones instaladas en `LauncherViewModel.refreshInstalledApps()`, se lanza automáticamente la pre-carga secuencial/asíncrona de los iconos (orden A-Z visible al abrir el cajón) respetando estrictamente el presupuesto máximo de memoria (`MAX_ENTRIES = 128`, ≤4.6 MB).
+  - **Coalescencia y Deduplicación en Vuelo (`inFlightJobs`):** Implementada concurrencia cooperativa con `ConcurrentHashMap<String, Deferred<ImageBitmap?>>` en `IconCache`. Múltiples solicitudes o recomposiciones concurrentes para el mismo paquete comparten la misma tarea de decodificación, erradicando IPCs duplicadas hacia `PackageManagerService`.
+  - **Desacople de Cancelación (`cacheScope`):** La decodificación se ejecuta en un `SupervisorJob` desacoplado del ciclo de vida efímero de las filas de la `LazyColumn`. Al desplazarse a alta velocidad, la tarea no se cancela al salir el elemento de la pantalla, completándose e insertándose en el LRU para que al reingresar esté disponible inmediatamente.
+  - **Eliminación del Fallback Genérico Blanco:** Modificado `ShortcutIcon` para distinguir formalmente entre estados `Loading` (placeholder sutil translúcido adaptado a la forma del icono sin parpadeos blancos), `Loaded` (renderizado inmediato de `ImageBitmap`) y `Failed` (fallback explícito `Icons.Outlined.Android` únicamente ante fallo comprobado de PackageManager).
+  - **Invalidación Reactiva por Ciclo de Vida (`invalidate`):** `LauncherViewModel.packageReceiver` invoca `IconCache.invalidate(changedPackage)` ante `ACTION_PACKAGE_REMOVED`, `ACTION_PACKAGE_REPLACED` o `ACTION_PACKAGE_ADDED`, purgando entradas desactualizadas y evitando iconos obsoletos tras actualizar apps.
+  - **Suite de Pruebas Automatizadas:** 10 pruebas unitarias nuevas en `IconCacheTest.kt` cubriendo caché fría/caliente, coalescencia concurrente, desacople de cancelación, fallos reales, invalidación y límite de memoria (259/259 tests unitarios aprobados al 100%).
+
+* **Auditoría y Recuperación de Video al Reanudar (NOVA-VIDEO-RESUME-02) — FIX APPLIED — PENDING DEVICE CONFIRMATION:**
+  - **Auditoría Forense de Ciclo de Vida de Video:** Análisis exhaustivo de los estados de ExoPlayer (`STATE_IDLE`, `STATE_BUFFERING`, `STATE_READY`, `STATE_ENDED`), ciclo de vida de `TextureView` y reclamación de códecs hardware en HyperOS.
+  - **Extracción de Política Pura:** Creada `VideoResumeRecoveryPolicy.kt` con función pura `evaluateVideoResumeAction()`, garantizando re-preparación determinista únicamente ante estados objetivamente rotos (`STATE_IDLE`, `STATE_ENDED` o `playerError != null`) y protegiendo los estados válidos (`STATE_READY`, `STATE_BUFFERING`) contra reinicios espurios, bucles de reintento o parpadeos negros (*Zero Black Flash*).
+  - **Integración Localizada en VideoWallpaperManager:** Reemplazadas las evaluaciones ad-hoc en `onResume()` y `assignSlotToPage()` por la política unificada `evaluateVideoResumeAction`.
+  - **Suite de Pruebas Automatizadas:** 6 pruebas unitarias nuevas en `VideoResumeRecoveryPolicyTest.kt` cubriendo exhaustivamente todos los estados y combinaciones (249/249 tests unitarios aprobados al 100%).
+
+* **Corrección de Resume Fade (NOVA-RESUME-FADE-01) — FIX APPLIED — PENDING DEVICE CONFIRMATION:**
+  - **Eliminación del Fade en Reanudación:** Retirado el estado y la lógica transitoria de alfa (`resumeAlpha`, `hasBeenStopped`, `resumeAnimJobHolder`) y la rama `ON_RESUME` asociada en `LauncherScreen.kt`.
+  - **Retiro de graphicsLayer Raíz:** Eliminado `.graphicsLayer { alpha = resumeAlpha.value }` del `Box` raíz en `LauncherScreen.kt`, conservando la estructura de modificadores y todos los componentes hijos (pager, drawer, overlays, diálogos).
+  - **Preservación Fail-Closed de Apps Ocultas:** Encapsulada la regla de ciclo de vida en `LauncherLifecyclePolicy.kt` (`shouldRevokeHiddenAppsSession(event)`), garantizando revocación inmediata (`isHiddenAppsAuthenticated = false`, `hiddenAppsFlowState = Closed`) exclusivamente en `Lifecycle.Event.ON_STOP`.
+  - **Suite de Pruebas Automatizadas:** 7 pruebas unitarias nuevas en `LauncherLifecyclePolicyTest.kt` evaluando exhaustivamente todos los eventos de `Lifecycle.Event` (243/243 tests unitarios aprobados al 100%).
 
 ### Versión 1.6 (versionCode = 8) — 27 de septiembre de 2026
 * **Cierre y Hardening de Apps Ocultas (HIDDEN-APPS-FIX-01):**

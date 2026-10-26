@@ -9,6 +9,7 @@ import com.daybreak.animelauncher.hiddenapps.HiddenAppsPreferencesStore
 import com.daybreak.animelauncher.theming.AdaptiveColorOverrides
 import com.daybreak.animelauncher.theming.ThemeMode
 import com.daybreak.animelauncher.hiddenapps.HiddenAppsRepository
+import com.daybreak.animelauncher.ui.components.IconCache
 
 import android.app.Application
 import android.app.WallpaperManager
@@ -247,6 +248,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private val packageReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            val changedPackage = intent?.data?.schemeSpecificPart
+            if (!changedPackage.isNullOrBlank()) {
+                IconCache.invalidate(changedPackage)
+            }
             refreshInstalledApps()
         }
     }
@@ -280,6 +285,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             autoCategorizeApps(getApplication(), mappedApps)
             val installedPackages = mappedApps.mapNotNull { it.packageName }.toSet()
             hiddenAppsRepository.pruneUninstalledPackages(installedPackages)
+
+            val packagesToPreload = mappedApps.mapNotNull { it.packageName }
+            IconCache.preloadIcons(getApplication(), packagesToPreload)
         }
     }
 
@@ -477,7 +485,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 }
                 _installedApps.value = mappedApps
                 autoCategorizeApps(context, mappedApps)
+                val packagesToPreload = mappedApps.mapNotNull { it.packageName }
+                IconCache.preloadIcons(context.applicationContext ?: context, packagesToPreload)
             }
+        } else {
+            val packagesToPreload = _installedApps.value.mapNotNull { it.packageName }
+            IconCache.preloadIcons(context.applicationContext ?: context, packagesToPreload)
         }
     }
 

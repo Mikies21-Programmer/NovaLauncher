@@ -82,7 +82,6 @@ import com.daybreak.animelauncher.ui.components.VideoWallpaperManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
@@ -275,39 +274,15 @@ fun LauncherScreen(
         }
     }
 
-    // Resume Fade: Transición visual extremadamente breve y limpia al volver a foreground desde otra app (~100ms)
     val lifecycleOwner = LocalLifecycleOwner.current
-    val resumeAlpha = remember { Animatable(1f) }
-    val hasBeenStopped = remember { booleanArrayOf(false) }
-    val resumeAnimJobHolder = remember { object { var job: Job? = null } }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP -> {
-                    // Solo se marca true si la Activity se detiene efectivamente al pasar a segundo plano
-                    hasBeenStopped[0] = true
-                    isHiddenAppsAuthenticated = false
-                    hiddenAppsFlowState = HiddenAppsFlowState.Closed
-                }
-                Lifecycle.Event.ON_RESUME -> {
-                    // Si el usuario desbloqueó el dispositivo, la animación de desbloqueo (unlockAlpha) toma precedencia
-                    if (isUnlockPending) {
-                        hasBeenStopped[0] = false
-                    } else if (hasBeenStopped[0]) {
-                        hasBeenStopped[0] = false
-                        resumeAnimJobHolder.job?.cancel()
-                        resumeAnimJobHolder.job = coroutineScope.launch {
-                            try {
-                                resumeAlpha.snapTo(0f)
-                                resumeAlpha.animateTo(
-                                    targetValue = 1f,
-                                    animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing)
-                                )
-                            } finally {
-                                resumeAlpha.snapTo(1f)
-                            }
-                        }
+                    if (shouldRevokeHiddenAppsSession(event)) {
+                        isHiddenAppsAuthenticated = false
+                        hiddenAppsFlowState = HiddenAppsFlowState.Closed
                     }
                 }
                 else -> {}
@@ -316,7 +291,6 @@ fun LauncherScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            resumeAnimJobHolder.job?.cancel()
         }
     }
 
@@ -418,9 +392,6 @@ fun LauncherScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer {
-                alpha = resumeAlpha.value
-            }
     ) {
         Box(
             modifier = Modifier
