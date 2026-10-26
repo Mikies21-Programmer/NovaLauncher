@@ -81,8 +81,9 @@ NovaLauncher permite personalizar el aspecto visual de las pantallas (fondos de 
 ### Mecanismo de selección (Storage Access Framework - SAF)
 - **Selectores nativos del sistema:** La selección de archivos se realiza exclusivamente a través de los componentes del sistema Android (`OpenDocument` y `PickVisualMedia`).
 - **Sin acceso general al almacenamiento:** NovaLauncher no solicita permisos invasivos ni generales de almacenamiento (como `READ_EXTERNAL_STORAGE` ni `MANAGE_EXTERNAL_STORAGE`).
-- **Uso de referencias URI locales:** La aplicación conserva únicamente el identificador local (`Uri`) otorgado por el sistema con permisos persistentes de lectura (`takePersistableUriPermission`) para poder decodificar y mostrar el fondo o icono elegido en su pantalla de inicio.
-- **Privacidad de los medios:** Las imágenes, videos y gráficos seleccionados por usted permanecen en su ubicación original en su dispositivo y **nunca son transferidos ni cargados a servidores externos**.
+- **Uso de referencias URI locales y proveedores del sistema:** La aplicación conserva únicamente el identificador local (`Uri`) otorgado por el sistema con permisos persistentes de lectura (`takePersistableUriPermission`) para decodificar y mostrar el fondo o icono elegido en su pantalla de inicio a través de Coil o ExoPlayer.
+- **Resolución mediante proveedores en la nube:** Si el usuario selecciona un archivo almacenado en un servicio en la nube (como Google Drive, Google Fotos, OneDrive o Dropbox) mediante el selector del sistema, el `ContentProvider` del sistema operativo o del proveedor en la nube correspondiente resuelve y transfiere los bytes del archivo al dispositivo para suministrar el flujo de entrada a NovaLauncher. NovaLauncher no gestiona, no intercepta ni transmite credenciales de dichos servicios externos, limitándose a consumir el flujo local que el marco de Android le proporciona.
+- **Privacidad de los medios:** Las imágenes, videos y gráficos seleccionados por usted permanecen en su ubicación original en su dispositivo o proveedor elegido y **nunca son cargados ni transferidos a servidores de NovaLauncher ni de terceros por parte de esta aplicación**.
 
 ---
 
@@ -134,8 +135,10 @@ NovaLauncher incluye la funcionalidad opcional de Apps ocultas para permitir org
 ## 12. Conectividad, Red y Servicios Externos
 
 De acuerdo con la auditoría técnica exhaustiva del código fuente de NovaLauncher:
-- **Permiso de Internet:** La aplicación declara el permiso `android.permission.INTERNET` en su manifiesto. Dicho permiso no se utiliza para enviar datos de usuario, telemetría ni comunicación en segundo plano. La única acción de red ocurre cuando el usuario pulsa voluntariamente el enlace a la Política de Privacidad dentro de los Ajustes, abriendo la página web pública oficial en el navegador externo del dispositivo.
-- **Sin servidores propios:** No existen servidores, APIs REST, servicios web ni infraestructura de backend conectados a la aplicación.
+- **Comunicaciones directas iniciadas por NovaLauncher:** Inexistentes. La aplicación no dispone de servidores propios, no implementa APIs REST, no realiza conexiones de red en segundo plano y no transmite datos personales ni de uso fuera del dispositivo.
+- **Permiso de Internet (`android.permission.INTERNET`):** Dicho permiso está declarado en el manifiesto del sistema. No se utiliza para enviar telemetría, analítica, publicidad ni datos de usuario.
+- **Apertura de enlaces en el navegador externo:** Cuando el usuario pulsa voluntariamente sobre el enlace de la Política de Privacidad dentro de los Ajustes, NovaLauncher no procesa la página internamente ni transmite identificadores; delega la acción al sistema operativo mediante un `Intent` estándar (`ACTION_VIEW`) que abre la URL pública oficial (`https://mikies21-programmer.github.io/NovaLauncher-Privacy/`) en el navegador web externo elegido por el usuario (Chrome, Firefox, etc.), el cual opera bajo sus propias condiciones de servicio y privacidad.
+- **Resolución de contenidos por proveedores del sistema:** Como se describe en la sección 6, la lectura de archivos seleccionados por el usuario mediante Storage Access Framework (`content://`) puede requerir que el proveedor de documentos del sistema (por ejemplo, Google Fotos o Google Drive) descargue datos de la red si el archivo reside en la nube. Dicha transferencia es gestionada íntegramente por el sistema operativo y el proveedor seleccionado, no por NovaLauncher.
 - **Sin servicios de analítica:** No se utilizan herramientas de análisis de uso o telemetría (no se incluye Google Analytics, Firebase Analytics, Flurry, Mixpanel ni similares).
 - **Sin servicios de reporte de fallos:** No se incluyen SDKs de crash reporting como Firebase Crashlytics, Sentry o Bugsnag.
 - **Sin publicidad ni monetización:** La aplicación no incluye bibliotecas de anuncios (AdMob, Unity Ads, etc.) ni pasarelas de pago (Google Play Billing).
