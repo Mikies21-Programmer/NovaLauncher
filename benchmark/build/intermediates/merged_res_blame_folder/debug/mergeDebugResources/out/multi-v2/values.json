@@ -4,24 +4,7 @@
             "outputFile": "com.daybreak.animelauncher.benchmark-mergeDebugResources-15:/values/values.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\ceb3226d22bc83ef81c6cf29588f2204\\transformed\\lifecycle-runtime-2.3.1\\res\\values\\values.xml",
-                    "from": {
-                        "startLines": "2",
-                        "startColumns": "4",
-                        "startOffsets": "55",
-                        "endColumns": "42",
-                        "endOffsets": "93"
-                    },
-                    "to": {
-                        "startLines": "82",
-                        "startColumns": "4",
-                        "startOffsets": "4925",
-                        "endColumns": "42",
-                        "endOffsets": "4963"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\0f7d3ed38717bab2ee0f15f40ea8da19\\transformed\\core-1.9.0\\res\\values\\values.xml",
+                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\e6f1491f11182ddf758bdbba24547d05\\transformed\\core-1.9.0\\res\\values\\values.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,89,90,94,95,96,97,103,113,146,167,200",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -40,7 +23,24 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\c26a8ee3a32d85f031864cb6d51d4678\\transformed\\startup-runtime-1.1.1\\res\\values\\values.xml",
+                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\678161239bc67bf94ccb950c997d46c1\\transformed\\lifecycle-runtime-2.3.1\\res\\values\\values.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "42",
+                        "endOffsets": "93"
+                    },
+                    "to": {
+                        "startLines": "82",
+                        "startColumns": "4",
+                        "startOffsets": "4925",
+                        "endColumns": "42",
+                        "endOffsets": "4963"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\747d07c438d8356ff56188d21a8c6b20\\transformed\\startup-runtime-1.1.1\\res\\values\\values.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -57,7 +57,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\41701e312a80ed635dc8d02e90fc4a8f\\transformed\\core-1.6.1\\res\\values\\values.xml",
+                    "source": "C:\\Users\\migue\\.gradle\\caches\\9.5.0\\transforms\\2fa9a9c4a8f6219597b49858753454ea\\transformed\\core-1.6.1\\res\\values\\values.xml",
                     "from": {
                         "startLines": "4,11",
                         "startColumns": "0,0",
