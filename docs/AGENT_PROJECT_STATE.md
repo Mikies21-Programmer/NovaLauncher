@@ -1,7 +1,7 @@
 # Estado Persistente del Proyecto — NovaLauncher (Agent State)
 
 > **Documento maestro de sincronización, continuidad operativa y auditoría entre sesiones, Antigravity y Claude.**<br>
-> *Última actualización: 25 de octubre de 2026 (NOVA-RESUME-FADE-01 y NOVA-VIDEO-RESUME-02: FIX APPLIED — PENDING DEVICE CONFIRMATION).*<br>
+> *Última actualización: 26 de octubre de 2026 (Release Symbols + Privacy Policy Sync 1.6.1 versionCode 9 — AAB y mapping verificados; sincronización web completada; NOVA-RESUME-FADE-01, NOVA-VIDEO-RESUME-02 y NOVA-APP-DRAWER-ICONS-01: FIX APPLIED — PENDING DEVICE CONFIRMATION).*<br>
 > *Regla de seguridad estricta: CERO secretos, contraseñas, keystores ni claves privadas en este repositorio.*
 
 ---
@@ -11,7 +11,8 @@
 * **Repositorio Principal:** `Mikies21-Programmer/NovaLauncher`
 * **Directorio Local:** `C:\Users\migue\AndroidStudioProjects\AnimeLauncher`
 * **Application ID:** `com.daybreak.animelauncher`
-* **Versión Actual:** `versionCode = 8`, `versionName = "1.6"`
+* **Versión Candidata (Release):** `versionCode = 9`, `versionName = "1.6.1"` (Compilada y verificada en AAB)
+* **Versión Previa:** `versionCode = 8`, `versionName = "1.6"`
 * **SDKs:** `minSdk = 24`, `targetSdk = 36`, `compileSdk = 36`
 * **Política de Privacidad Pública:** `https://mikies21-programmer.github.io/NovaLauncher-Privacy/`
 * **Contacto Oficial:** `dbreak472@gmail.com`
@@ -484,6 +485,7 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
   2A:DF:B7:D2:4E:62:7C:29:52:42:2B:28:D7:11:F3:D9:34:F1:9E:66:FB:B3:05:3F:AB:14:E7:97:82:39:3B:F1
   ```
 * **Regla de Seguridad:** Cero claves ni contraseñas en el repositorio. Archivos sensibles ignorados por `.gitignore`.
+* **Estado en Google Play Console:** Solicitud de restablecimiento de Upload Key enviada con el certificado público `upload_certificate-v2.pem` (ventana de procesamiento de Google: 24-48 horas). Requiere confirmación manual por parte del desarrollador en la consola web antes del envío formal del bundle.
 
 ---
 
@@ -494,7 +496,12 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 * `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (APK generado en `app\build\outputs\apk\debug\app-debug.apk`, 87,041,306 bytes, SHA-256: `7A2DA6D25406D90AD90005AB90C6FBB5EA4AD8F624F47EFAE11D12560A760578`).
 * `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errores, 81 advertencias baseline preexistentes).
 * `.\gradlew.bat lintVitalRelease`: **BUILD SUCCESSFUL** (0 errores, 0 advertencias).
-* `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Minificación R8 y AAB generado en `app/build/outputs/bundle/release/app-release.aab`).
+* `.\gradlew.bat bundleRelease`: **BUILD SUCCESSFUL** (Minificación R8, encogimiento de recursos y firma con `upload-keystore-v2.jks`).
+  * **AAB Generado y Verificado:** `app\build\outputs\bundle\release\app-release.aab`
+  * **Tamaño:** 64,491,244 bytes (~61.50 MB)
+  * **SHA-256:** `233C2C7774220F305392C0AE826526E34972BD70FD01C5457FB74D2CE6BFBF8F`
+  * **Firma Criptográfica Verificada:** `jarsigner -verify -verbose -certs` confirma firma válida con `CN=NovaLauncher Upload v2, OU=Mobile, O=NovaLauncher, C=MX` (RSA 4096-bit, SHA-256 digest).
+  * **Manifiesto AAB Verificado:** `package="com.daybreak.animelauncher"`, `versionCode="9"`, `versionName="1.6.1"`, `minSdk="24"`, `targetSdk="36"`.
 * Suite de Benchmarks en Hardware Físico (`POCO X6 5G`): **PASS** (`StartupBenchmark` + `DrawerFrameBenchmark`).
 
 ---
@@ -506,13 +513,38 @@ P2-06 Compose Stability (Profiling de recomposiciones en LauncherState)
 3. **NOVA-VIDEO-RESUME-02 (Validación Física en Hardware POCO X6 5G):** Confirmación física tras apertura/cierre de apps multimedia pesadas (TikTok, Cámara, YouTube). El código garantiza recuperación ante estados rotos/ENDED/error sin causar parpadeos negros espurios; la detección de pérdida de presentación en códecs hardware sin error de Media3 permanece sujeta a validación empírica en dispositivo real. Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**.
 4. **NOVA-APP-DRAWER-ICONS-01 (Validación Física en Hardware POCO X6 5G):** Confirmación en dispositivo físico tras apertura inicial del cajón y desplazamiento vertical rápido. Ausencia total del icono genérico blanco de Android, renderizado inmediato de iconos precalentados y placeholders sutiles no intrusivos durante cargas asíncronas. Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**.
 5. **Performance Engineering — Fase P2-04 (Composición / Layout):** Auditoría técnica y selección del próximo experimento A/B de optimización sobre los hotspots de composición restantes.
-6. **Google Play Console — Restablecimiento de Upload Key:** Confirmar el procesamiento del certificado `upload_certificate-v2.pem` por parte de Google (ventana de 24-48 horas).
-7. **Fase 5E-3 — Configuración Segura de Firma:** Configurar `signingConfigs.release` en Gradle mediante `keystore.properties` desacoplado fuera del control de versiones.
+6. **Google Play Console — Restablecimiento de Upload Key:** Pendiente confirmación externa por parte del desarrollador en Google Play Console para validar que la clave `upload_certificate-v2.pem` ya se encuentre activa en el backend de Google (ventana 24-48h).
+7. **Fase 5E-3 — Configuración Segura de Firma:** ✅ **COMPLETADA LOCALMENTE** (Configuración en Gradle vía `keystore.properties` desacoplado fuera de Git, validada exitosamente mediante `bundleRelease`).
 8. **Accesibilidad y Ficha de Tienda:** Preparar video demostrativo de accesibilidad para Play Console y activos gráficos finales.
+9. **Deuda Técnica — Rastreo de artefactos en `benchmark/build`:** Limpiar artefactos compilados rastreados previamente en Git en el directorio `benchmark/build/` mediante `git rm -r --cached benchmark/build/` en una tarea/commit dedicado e independiente, sin alterar la lógica funcional del launcher.
 
 ---
 
 ## 12. Registro de Versiones y Changelog
+
+### Versión Candidata 1.6.1 (versionCode = 9) — 26 de octubre de 2026 (Release Preflight, Symbols & Privacy Sync)
+* **Preparación y Empaquetado para Google Play (RELEASE PREFLIGHT 1.6.1):**
+  - **Identidad y Versión:** Actualizados `versionCode = 9` y `versionName = "1.6.1"` en `app/build.gradle.kts` (`minSdk = 24`, `targetSdk = 36`).
+  - **Generación de Android App Bundle:** AAB generado y compilado con éxito en `app\build\outputs\bundle\release\app-release.aab` (64,491,244 bytes, SHA-256: `233C2C7774220F305392C0AE826526E34972BD70FD01C5457FB74D2CE6BFBF8F`).
+  - **Firma Criptográfica Verificada:** Firmado con la clave oficial `novalauncher-upload-v2` (`upload-keystore-v2.jks`, RSA 4096-bit). Verificación con `jarsigner` exitosa (`jar verified`).
+  - **Configuración de Símbolos Nativos (NDK):** Incorporado `ndk { debugSymbolLevel = "FULL" }` en `buildTypes.release` de `app/build.gradle.kts`.
+  - **Auditoría Técnica de Bibliotecas Nativas:**
+    - Se identificaron e inspeccionaron las bibliotecas .so del AAB original: `libandroidx.graphics.path.so` en 4 arquitecturas (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+    - Verificación de correspondencia 100% de tamaño y SHA-256 entre el AAB original y la compilación actual.
+    - Se constató que dicha biblioteca proviene de la dependencia de terceros `androidx.graphics:graphics-path` y se distribuye pre-stripped desde el repositorio oficial de Google AndroidX en Maven, emitiendo AGP `Unable to extract native debug metadata ... because the native debug metadata has already been stripped.` No se requiere ZIP nativo externo adicional.
+  - **Preservación de Artefactos de Soporte:** AAB original, `mapping.txt` (SHA-256: `4ACCA1BF8103EFED7E7976DE8EBAE950EE1BAF59CC3F890540CD39CB6B27FF58`) e informe de verificación archivados fuera del repositorio en `C:\Users\migue\NovaLauncher-ReleaseArchive\v1.6.1-code9\`.
+  - **Sincronización de Política de Privacidad:**
+    - Documento maestro `docs/PRIVACY_POLICY.md` actualizado a versión 1.6.1 (26 de octubre de 2026), incorporando secciones explícitas de Cajón de Aplicaciones/IconCache, RAM Monitor (`ActivityManager.MemoryInfo`), Temas Adaptativos y transparencia del permiso INTERNET.
+    - Repositorio web público `Mikies21-Programmer/NovaLauncher-Privacy` sincronizado con paridad 1:1 en `index.html`.
+  - **Validaciones Automatizadas al 100%:**
+    - `testDebugUnitTest`: 259/259 pruebas unitarias aprobadas (100% PASS).
+    - `lintRelease`: Aprobado (0 errores, 81 advertencias en baseline).
+    - `bundleRelease`: Compilación exitosa con R8 minification y resource shrinking.
+  - **Correcciones Incluidas (Pendientes de Confirmación Física en Hardware Real):**
+    - `NOVA-RESUME-FADE-01`: Eliminación de fade de 100 ms y scaffold negro en reanudación. (Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**).
+    - `NOVA-VIDEO-RESUME-02`: Recuperación determinista de fondo de video ante estados rotos/ENDED sin recargas espurias en estados listos. (Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**).
+    - `NOVA-APP-DRAWER-ICONS-01`: Precalentamiento asíncrono, coalescencia de decodificación y eliminación del fallback blanco genérico en el cajón de aplicaciones. (Estado: **FIX APPLIED — PENDING DEVICE CONFIRMATION**).
+  - **Bloqueos Restantes Previos a Carga en Tienda:** Confirmación manual por parte del desarrollador en Google Play Console de la activación de la clave de subida v2 y verificación de que `versionCode = 9` no haya sido subido previamente.
 
 ### Versión 1.6 (versionCode = 8) — 25 de octubre de 2026
 * **Carga y Estabilización de Iconos en App Drawer (NOVA-APP-DRAWER-ICONS-01) — FIX APPLIED — PENDING DEVICE CONFIRMATION:**
