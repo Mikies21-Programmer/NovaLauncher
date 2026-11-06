@@ -289,7 +289,6 @@ fun AdvancedSettingsScreen(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             DynamicBackground(
-                defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,
                 backgroundUri = backgroundUri,
                 modifier = Modifier.fillMaxSize()
             )

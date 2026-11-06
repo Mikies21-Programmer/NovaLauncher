@@ -67,7 +67,11 @@ fun OnboardingScreen(
     ) {
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize(),
+            // El fondo pertenece al Box exterior full-bleed. El pager contiene todos
+            // los controles del onboarding y se mantiene fuera de barras/cutouts.
+            modifier = Modifier
+                .fillMaxSize()
+                .safeContentPadding(),
             userScrollEnabled = false
         ) { page ->
             when (page) {
@@ -99,6 +103,7 @@ fun OnboardingScreen(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -340,9 +345,9 @@ fun DefaultLauncherStep(isEs: Boolean, context: Context, onNext: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = if (isEs) {
-                        "Para mostrar el contador de mensajes pendientes, NovaLauncher necesita acceso a tus notificaciones."
+                        "Para mostrar el contador de mensajes pendientes, Orivolt Home necesita acceso a tus notificaciones."
                     } else {
-                        "To show the pending message counter, NovaLauncher needs access to your notifications."
+                        "To show the pending message counter, Orivolt Home needs access to your notifications."
                     },
                     color = Color.LightGray,
                     fontSize = 16.sp,
@@ -382,9 +387,9 @@ fun DefaultLauncherStep(isEs: Boolean, context: Context, onNext: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = if (isEs) {
-                        "NovaLauncher ya es tu launcher predeterminado y el acceso a notificaciones está activo."
+                        "Orivolt Home ya es tu launcher predeterminado y el acceso a notificaciones está activo."
                     } else {
-                        "NovaLauncher is your default launcher and notification access is active."
+                        "Orivolt Home is your default launcher and notification access is active."
                     },
                     color = Color.LightGray,
                     fontSize = 16.sp,
@@ -454,7 +459,7 @@ fun TutorialStep(isEs: Boolean, onStart: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (isEs) "Cómo usar NovaLauncher" else "How to use NovaLauncher",
+            text = if (isEs) "Cómo usar Orivolt Home" else "How to use Orivolt Home",
             color = Color.White,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
@@ -481,7 +486,7 @@ fun TutorialStep(isEs: Boolean, onStart: () -> Unit) {
             )
             TutorialItem(
                 title = if (isEs) "Doble Toque para Apagar" else "Double Tap to Sleep",
-                desc = if (isEs) "Toca dos veces sobre un espacio libre del escritorio para bloquear la pantalla (requiere activar el servicio de accesibilidad de NovaLauncher)." else "Double tap on empty desktop space to lock screen (requires enabling NovaLauncher accessibility service)."
+                desc = if (isEs) "Toca dos veces sobre un espacio libre del escritorio para bloquear la pantalla (requiere activar el servicio de accesibilidad de Orivolt Home)." else "Double tap on empty desktop space to lock screen (requires enabling Orivolt Home accessibility service)."
             )
             TutorialItem(
                 title = if (isEs) "Deslizar para Notificaciones" else "Swipe for Notifications",

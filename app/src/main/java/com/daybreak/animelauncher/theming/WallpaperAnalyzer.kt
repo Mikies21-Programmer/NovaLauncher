@@ -4,9 +4,12 @@ import android.graphics.Bitmap
 import androidx.annotation.ColorInt
 import androidx.core.graphics.ColorUtils
 import androidx.palette.graphics.Palette
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 
 /**
  * Analizador de wallpapers para la extracción de paletas de color adaptativas (Fase 1: Fundamentos).
@@ -32,7 +35,11 @@ object WallpaperAnalyzer {
         bitmap: Bitmap?,
         dispatcher: CoroutineDispatcher = Dispatchers.Default
     ): ThemePalette = withContext(dispatcher) {
-        analyzeSync(bitmap)
+        coroutineContext.ensureActive()
+        val palette = analyzeSync(bitmap)
+        // Palette.generate() is synchronous: cancellation cannot interrupt it.
+        coroutineContext.ensureActive()
+        palette
     }
 
     /**
@@ -59,6 +66,8 @@ object WallpaperAnalyzer {
                 .generate()
 
             extractPalette(palette, sampleColor)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             ThemePalette.DEFAULT
         } finally {

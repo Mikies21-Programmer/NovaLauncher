@@ -13,6 +13,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
@@ -138,7 +140,6 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    @android.annotation.SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // ── P2-02B: MAIN-ONCREATE-TOTAL ──────────────────────────────────────
@@ -193,10 +194,17 @@ class MainActivity : FragmentActivity() {
                         }
 
                         CompositionLocalProvider(LocalLauncherThemeTokens provides themeTokens) {
+                            // COMPAT-INSETS-01: sin barras ni FAB y con insets cero, el padding
+                            // raíz es cero; las rutas consumen sus insets y mantienen el fondo full-bleed.
+                            @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
                             Scaffold(
                                 modifier = Modifier.fillMaxSize(),
-                                containerColor = androidx.compose.ui.graphics.Color.Black
-                            ) { _ ->
+                                containerColor = androidx.compose.ui.graphics.Color.Black,
+                                // El launcher y onboarding conservan fondos full-bleed y consumen
+                                // los insets localmente solo donde hay controles interactivos.
+                                // Evita generar un innerPadding raíz que se aplicaría dos veces.
+                                contentWindowInsets = WindowInsets(0.dp)
+                            ) {
                                 val navController = rememberNavController()
                                 var openAdvancedInSettings by remember { mutableStateOf(false) }
                                 LaunchedEffect(navController) {

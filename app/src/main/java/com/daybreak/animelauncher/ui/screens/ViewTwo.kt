@@ -120,7 +120,6 @@ fun ViewTwo(
 
         // Background - Dynamic (Image or Video con TextureView anti pantalla negra)
         DynamicBackground(
-            defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_two,
             backgroundUri = config.backgroundUri,
             pageIndex = viewIndex,
             modifier = Modifier.fillMaxSize()
@@ -285,7 +284,15 @@ fun ViewTwo(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxHeight()
+                // The bar background remains full-bleed; only its controls avoid cutouts,
+                // system bars and the start-edge gesture area.
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .windowInsetsPadding(
+                        WindowInsets.safeContent.only(
+                            WindowInsetsSides.Vertical + WindowInsetsSides.Start
+                        )
+                    )
             ) {
                 // Top Logo "mi"
                 com.daybreak.animelauncher.theming.LauncherLogo(

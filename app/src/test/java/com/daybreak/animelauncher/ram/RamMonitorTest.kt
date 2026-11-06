@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -87,27 +88,32 @@ class RamMonitorTest {
     // E. formato en español e inglés
     @Test
     fun test05_FormatoEsEn() {
-        // 10.8125 GB total, 4.4 GB avail → usada 6.4125 GB (redondeo a 1 decimal)
+        // GB SI decimales: 10.8 GB total, 4.4 GB disponibles → 6.4 GB usada.
         val s = RamSnapshot(
-            totalBytes = 11_610_216_448L,
-            availBytes = 4_724_464_026L,
+            totalBytes = 10_800_000_000L,
+            availBytes = 4_400_000_000L,
             lowMemory = false
         )
-        assertEquals("6.4 / 10.8 GB", RamFormat.usedOverTotal(s))
-        assertEquals("4.4 GB disponibles", RamFormat.available(s, isEs = true))
-        assertEquals("4.4 GB available", RamFormat.available(s, isEs = false))
+        assertEquals("6.4 / 10.8 GB", RamFormat.usedOverTotal(s, Locale.US))
+        assertEquals(
+            "4,4 GB disponibles",
+            RamFormat.available(s, isEs = true, locale = Locale.forLanguageTag("es-ES"))
+        )
+        assertEquals("4.4 GB available", RamFormat.available(s, isEs = false, locale = Locale.US))
+        assertEquals("1.1", RamFormat.gb(BYTES_PER_GIB, Locale.US))
+        assertEquals("1.0", RamFormat.gib(BYTES_PER_GIB, Locale.US))
         assertEquals("RAM", "RAM") // etiqueta idéntica en ambos idiomas
     }
 
     // F. conversión y redondeo de unidades
     @Test
     fun test06_ConversionRedondeo() {
-        assertEquals(1.0f, RamFormat.bytesToGb(GB), 1e-6f)
+        assertEquals(1.0, RamFormat.bytesToGb(GB).toDouble(), 1e-6)
         assertEquals("2.0", RamFormat.gb(2 * GB))
-        assertEquals("punto decimal estable (Locale.US)", "1.5", RamFormat.gb(1_610_612_736L))
-        assertEquals("un decimal fijo", "0.1", RamFormat.gb(107_374_182L))
+        assertEquals("1.5 GB SI", "1.5", RamFormat.gb(1_500_000_000L))
+        assertEquals("un decimal fijo", "0.1", RamFormat.gb(100_000_000L))
         // redondeo medio: 1.25 → 1.3 (HALF_UP de %.1f)
-        assertEquals("1.3", RamFormat.gb(1_342_177_280L))
+        assertEquals("1.3", RamFormat.gb(1_250_000_000L))
     }
 
     // G. lowMemory representado correctamente
@@ -118,7 +124,11 @@ class RamMonitorTest {
         assertEquals("Low RAM", RamFormat.detailLine(low, isEs = false))
         // lowMemory=false → línea normal de disponibles (NO se interpreta % alto como peligro)
         val normal = snap(11, 4)
-        assertEquals("4.0 GB disponibles", RamFormat.detailLine(normal, isEs = true))
+        assertEquals(
+            "4,0 GB disponibles",
+            RamFormat.detailLine(normal, isEs = true, locale = Locale.forLanguageTag("es-ES"))
+        )
+        assertEquals("4.0 GB available", RamFormat.detailLine(normal, isEs = false, locale = Locale.US))
         assertEquals(low.lowMemory, true)
     }
 

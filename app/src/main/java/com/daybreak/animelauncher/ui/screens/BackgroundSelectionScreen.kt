@@ -46,9 +46,9 @@ fun BackgroundSelectionScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var selectedCategory by remember { mutableStateOf(ThemePresets.categories.first()) }
+    var selectedCategory by remember { mutableStateOf(ThemePresets.categories.firstOrNull()) }
     val categoryImages = remember(selectedCategory) {
-        getAssetImages(context, selectedCategory.folderPath)
+        selectedCategory?.let { getAssetImages(context, it.folderPath) } ?: emptyList()
     }
 
     Dialog(

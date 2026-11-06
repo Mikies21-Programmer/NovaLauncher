@@ -43,10 +43,10 @@ import com.daybreak.animelauncher.ui.components.DynamicBackground
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
 
 /**
- * URL pública de la Política de Privacidad para Google Play Console y acceso in-app.
- * Repositorio público oficial: Mikies21-Programmer/NovaLauncher-Privacy
+ * URL HTTPS pública y validada de la política de privacidad de Orivolt Home.
+ * Mantener en null hasta que el titular publique y valide la página; no usar una URL heredada.
  */
-const val PRIVACY_POLICY_URL = "https://mikies21-programmer.github.io/NovaLauncher-Privacy/"
+val PRIVACY_POLICY_URL: String? = "https://mikies21-programmer.github.io/OrivoltHome-Privacy/"
 
 val LocalAdvancedStyleConfig = compositionLocalOf { AdvancedStyleConfig() }
 
@@ -212,7 +212,6 @@ fun SettingsScreen(
             Box(modifier = Modifier.fillMaxSize()) {
         // 1. Fondo Dinámico de la Vista Principal (Pantalla 1)
         DynamicBackground(
-            defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,
             backgroundUri = firstScreenUri,
             modifier = Modifier.fillMaxSize()
         )
@@ -516,8 +515,8 @@ fun SettingsScreen(
                                         if (isEs) "Acceso activo: el contador de mensajes está funcionando."
                                         else "Access granted: pending message counter is active."
                                     } else {
-                                        if (isEs) "Para mostrar el contador de mensajes pendientes, NovaLauncher necesita acceso a tus notificaciones."
-                                        else "To show the pending message counter, NovaLauncher needs access to your notifications."
+                                        if (isEs) "Para mostrar el contador de mensajes pendientes, Orivolt Home necesita acceso a tus notificaciones."
+                                        else "To show the pending message counter, Orivolt Home needs access to your notifications."
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (hasNotifAccess) Color(0xFF39FF14) else Color.LightGray
@@ -846,7 +845,7 @@ fun SettingsScreen(
                                         color = Color(0xFF00F0FF)
                                     )
                                     Text(
-                                        text = "NovaLauncher • " + androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_about_version, appVersion),
+                                        text = androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.app_name) + " • " + androidx.compose.ui.res.stringResource(com.daybreak.animelauncher.R.string.settings_about_version, appVersion),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color.LightGray
                                     )
@@ -880,15 +879,18 @@ fun SettingsScreen(
                                 }
                                 Button(
                                     onClick = {
-                                        try {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)).apply {
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        PRIVACY_POLICY_URL?.let { url ->
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
                                             }
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
                                         }
                                     },
+                                    enabled = PRIVACY_POLICY_URL != null,
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFF00F0FF),
                                         contentColor = Color.Black

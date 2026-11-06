@@ -66,12 +66,19 @@ object VideoWallpaperManager {
     }
 
     private fun isUriAccessible(context: Context, uriString: String): Boolean {
+        // Validación de esquema previa e imperativa: ningún esquema no permitido
+        // (remoto como HTTP/HTTPS o archivo arbitrario) puede eludir la validación vía caché
+        if (!LauncherMediaUriValidator.isAllowedMediaUri(uriString)) {
+            knownInaccessibleUris.add(uriString)
+            return false
+        }
         if (uriString.startsWith("android.resource://")) return true
+        if (uriString.startsWith("file:///android_asset/")) return true
         if (verifiedAccessibleUris.contains(uriString)) return true
         if (knownInaccessibleUris.contains(uriString)) return false
 
         val uri = try { Uri.parse(uriString) } catch (_: Exception) { return false }
-        if (uri.scheme != "content") return true
+        if (uri.scheme != "content") return false
 
         return try {
             context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { true } ?: false
@@ -86,6 +93,14 @@ object VideoWallpaperManager {
                 verifiedAccessibleUris.add(uriString)
             }
         }
+    }
+
+    internal fun resolveMediaUriForConsumer(context: Context, @RawRes rawResId: Int, uriString: String?): Uri {
+        return buildMediaUri(context, rawResId, uriString)
+    }
+
+    internal fun isUriAccessibleForConsumer(context: Context, uriString: String): Boolean {
+        return isUriAccessible(context, uriString)
     }
 
     private var appContext: Context? = null

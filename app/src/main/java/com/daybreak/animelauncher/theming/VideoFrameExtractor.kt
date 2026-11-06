@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -105,6 +106,8 @@ object VideoFrameExtractor {
         try {
             retriever.setDataSource(context, videoUri)
             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             null
         } finally {
@@ -113,20 +116,22 @@ object VideoFrameExtractor {
     }
 
     /**
-     * Extrae UN frame escalado (~[TARGET_MAX_DIMENSION]) en la posición [positionMs].
-     * Retorna null ante cualquier fallo. El llamador es dueño del bitmap devuelto
-     * (debe reciclarlo tras analizarlo).
+     * Samples one exclusively owned frame on IO and analyzes it on Default.
+     * Only colors cross back to the caller; cancellation cannot lose a bitmap
+     * during a dispatcher handoff. Sampling cadence is controlled by the caller.
      */
-    suspend fun extractFrameAt(
+    suspend fun extractPaletteAt(
         context: Context,
         videoUri: Uri,
         positionMs: Long,
         dispatcher: CoroutineDispatcher = Dispatchers.IO
-    ): Bitmap? = withContext(dispatcher) {
+    ): ThemePalette = analyzeOwnedVideoFrame(dispatcher = dispatcher) {
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(context, videoUri)
             extractScaledFrame(retriever, positionMs * 1000L, TARGET_MAX_DIMENSION)
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             null
         } finally {
@@ -151,6 +156,8 @@ object VideoFrameExtractor {
                     maxDimension,
                     maxDimension
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Throwable) {
                 retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
             }
@@ -169,7 +176,12 @@ object VideoFrameExtractor {
             val targetW = (rawBitmap.width * scale).toInt().coerceAtLeast(1)
             val targetH = (rawBitmap.height * scale).toInt().coerceAtLeast(1)
 
-            val scaled = Bitmap.createScaledBitmap(rawBitmap, targetW, targetH, true)
+            val scaled = try {
+                Bitmap.createScaledBitmap(rawBitmap, targetW, targetH, true)
+            } catch (failure: Throwable) {
+                rawBitmap.recycle()
+                throw failure
+            }
             if (scaled != rawBitmap) {
                 rawBitmap.recycle()
             }
@@ -177,5 +189,27 @@ object VideoFrameExtractor {
         }
 
         return rawBitmap
+    }
+}
+
+/**
+ * Owns only a newly extracted analysis frame, never a cached/shared bitmap.
+ * Acquisition stays inside IO: even prompt cancellation on dispatcher return
+ * cannot discard an unowned frame. Structured analysis completes before cleanup.
+ */
+internal suspend fun analyzeOwnedVideoFrame(
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    analyze: suspend (Bitmap?) -> ThemePalette = { WallpaperAnalyzer.analyze(it) },
+    extractFrame: () -> Bitmap?
+): ThemePalette = withContext(dispatcher) {
+    coroutineContext.ensureActive()
+    val frame = extractFrame()
+    try {
+        coroutineContext.ensureActive()
+        val palette = analyze(frame)
+        coroutineContext.ensureActive()
+        palette
+    } finally {
+        if (frame != null && !frame.isRecycled) frame.recycle()
     }
 }

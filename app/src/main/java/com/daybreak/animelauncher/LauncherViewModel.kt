@@ -25,6 +25,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -256,6 +258,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // Initial discovery and onboarding may request the installed-app list at the same time.
+    // Serialize PackageManager scans without reintroducing eager icon decoding at HOME startup.
+    private val installedAppsRefreshMutex = Mutex()
+
     init {
         // Precarga de aplicaciones instaladas en hilo secundario y escucha de cambios de paquetes
         refreshInstalledApps()
@@ -272,22 +278,26 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun refreshInstalledApps() {
+    fun refreshInstalledApps(force: Boolean = true) {
         viewModelScope.launch(Dispatchers.IO) {
-            val apps = getInstalledApps(getApplication())
-            val stateIcons = _state.value.customAppIcons
-            val mappedApps = apps.map { app ->
-                if (stateIcons.containsKey(app.packageName)) {
-                    app.copy(customIconUri = stateIcons[app.packageName])
-                } else app
-            }
-            _installedApps.value = mappedApps
-            autoCategorizeApps(getApplication(), mappedApps)
-            val installedPackages = mappedApps.mapNotNull { it.packageName }.toSet()
-            hiddenAppsRepository.pruneUninstalledPackages(installedPackages)
+            installedAppsRefreshMutex.withLock {
+                if (!force && _installedApps.value.isNotEmpty()) return@withLock
 
-            val packagesToPreload = mappedApps.mapNotNull { it.packageName }
-            IconCache.preloadIcons(getApplication(), packagesToPreload)
+                val apps = getInstalledApps(getApplication())
+                val stateIcons = _state.value.customAppIcons
+                val mappedApps = apps.map { app ->
+                    if (stateIcons.containsKey(app.packageName)) {
+                        app.copy(customIconUri = stateIcons[app.packageName])
+                    } else app
+                }
+                _installedApps.value = mappedApps
+                autoCategorizeApps(getApplication(), mappedApps)
+                val installedPackages = mappedApps.mapNotNull { it.packageName }.toSet()
+                hiddenAppsRepository.pruneUninstalledPackages(installedPackages)
+
+                // Icons continue loading on demand in ShortcutIcon. Decoding the whole cache
+                // during HOME startup competes with the first seconds of interaction.
+            }
         }
     }
 
@@ -473,25 +483,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _installedApps = MutableStateFlow<List<AppShortcut>>(emptyList())
     val installedApps: StateFlow<List<AppShortcut>> = _installedApps.asStateFlow()
 
-    fun loadInstalledApps(context: Context) {
-        if (_installedApps.value.isEmpty()) {
-            viewModelScope.launch(Dispatchers.IO) {
-                val apps = getInstalledApps(context)
-                val stateIcons = _state.value.customAppIcons
-                val mappedApps = apps.map { app ->
-                    if (stateIcons.containsKey(app.packageName)) {
-                        app.copy(customIconUri = stateIcons[app.packageName])
-                    } else app
-                }
-                _installedApps.value = mappedApps
-                autoCategorizeApps(context, mappedApps)
-                val packagesToPreload = mappedApps.mapNotNull { it.packageName }
-                IconCache.preloadIcons(context.applicationContext ?: context, packagesToPreload)
-            }
-        } else {
-            val packagesToPreload = _installedApps.value.mapNotNull { it.packageName }
-            IconCache.preloadIcons(context.applicationContext ?: context, packagesToPreload)
-        }
+    fun loadInstalledApps(@Suppress("UNUSED_PARAMETER") context: Context) {
+        // The ViewModel owns initial discovery. This onboarding request joins it instead of
+        // starting another PackageManager scan or preloading drawer icons.
+        refreshInstalledApps(force = false)
     }
 
     private fun autoCategorizeApps(context: Context, apps: List<AppShortcut>) {

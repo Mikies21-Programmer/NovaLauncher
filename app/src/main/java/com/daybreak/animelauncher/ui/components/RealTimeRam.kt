@@ -1,8 +1,14 @@
 package com.daybreak.animelauncher.ui.components
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,9 +59,10 @@ fun RealTimeRam(
     provider: RamProvider = rememberActivityManagerRamProvider(),
     pollIntervalMs: Long = RAM_POLL_INTERVAL_MS
 ) {
+    // Igualdad estructural: una lectura idéntica no invalida la composición.
     var snapshot by remember { mutableStateOf<RamSnapshot?>(null) }
 
-    LaunchedEffect(pollActive) {
+    LaunchedEffect(pollActive, provider, pollIntervalMs) {
         if (!pollActive) return@LaunchedEffect
         pollRam(provider = provider, tick = { delay(pollIntervalMs) }) { snapshot = it }
     }
@@ -63,7 +76,7 @@ private fun rememberActivityManagerRamProvider(): RamProvider {
     return remember(appContext) { ActivityManagerRamProvider(appContext) }
 }
 
-/** Presentación pura: tres líneas compactas centradas, una línea por Text. */
+/** Tres líneas compactas; tocar abre el detalle sin añadir otro sondeo. */
 @Composable
 fun RealTimeRamContent(
     snapshot: RamSnapshot?,
@@ -72,10 +85,20 @@ fun RealTimeRamContent(
     modifier: Modifier = Modifier
 ) {
     val isEs = language != "en"
+    val systemLocale = LocalConfiguration.current.locales[0]
+    val locale = remember(language, systemLocale) { RamFormat.localeForLanguage(language, systemLocale) }
+    var showDetails by remember { mutableStateOf(false) }
+    val openDetailsLabel = if (isEs) "Ver detalles de RAM" else "View RAM details"
     val (primary, secondary) = RamFormat.widgetColors(tokens)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
+            .clickable(role = Role.Button, onClickLabel = openDetailsLabel) { showDetails = true }
+            .clearAndSetSemantics {
+                role = Role.Button
+                contentDescription = RamFormat.accessibilitySummary(snapshot, isEs, locale)
+                onClick(label = openDetailsLabel) { showDetails = true; true }
+            }
     ) {
         Text(
             text = "RAM",
@@ -88,13 +111,13 @@ fun RealTimeRamContent(
         )
         Spacer(modifier = Modifier.height(2.dp))
         AutoShrinkRamLine(
-            text = RamFormat.usedOverTotal(snapshot),
+            text = RamFormat.usedOverTotal(snapshot, locale),
             color = Color(primary),
             initialSp = 10,
             minSp = 7,
             fontWeight = FontWeight.Medium
         )
-        val detail = RamFormat.detailLine(snapshot, isEs)
+        val detail = RamFormat.detailLine(snapshot, isEs, locale)
         if (detail.isNotEmpty()) {
             AutoShrinkRamLine(
                 text = detail,
@@ -104,6 +127,40 @@ fun RealTimeRamContent(
                 fontWeight = FontWeight.Thin
             )
         }
+    }
+
+    if (showDetails) {
+        val rows = remember(snapshot, isEs, locale) { RamFormat.detailRows(snapshot, isEs, locale) }
+        AlertDialog(
+            onDismissRequest = { showDetails = false },
+            containerColor = Color(tokens.surfaceColor),
+            titleContentColor = Color(primary),
+            textContentColor = Color(primary),
+            title = { Text(if (isEs) "RAM del sistema Android" else "Android system RAM") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    rows.forEach { row ->
+                        Column(modifier = Modifier.padding(bottom = 12.dp)) {
+                            Text(row.label, color = Color(secondary))
+                            Text(row.value, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    if (snapshot?.isValid == true && snapshot.lowMemory) {
+                        Text(RamFormat.lowMemoryWarning(isEs), color = Color(secondary))
+                    }
+                    Text(
+                        if (isEs) "Uso estimado = accesible − disponible. Disponible incluye memoria recuperable; estas métricas no son el consumo de Orivolt Home. La RAM anunciada procede de Android; no se suma ampliación virtual."
+                        else "Estimated use = accessible − available. Available includes reclaimable memory; these metrics are not Orivolt Home usage. Advertised RAM comes from Android; virtual expansion is not added.",
+                        color = Color(secondary)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDetails = false }) {
+                    Text(if (isEs) "Cerrar" else "Close", color = Color(primary))
+                }
+            }
+        )
     }
 }
 

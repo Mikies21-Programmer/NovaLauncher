@@ -27,14 +27,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -78,6 +78,7 @@ import com.daybreak.animelauncher.theming.accent
 import com.daybreak.animelauncher.theming.border
 import com.daybreak.animelauncher.theming.surface
 import com.daybreak.animelauncher.ui.components.AccessibilityDisclosureDialog
+import com.daybreak.animelauncher.ui.components.DrawerTransition
 import com.daybreak.animelauncher.ui.components.VideoWallpaperManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -392,10 +393,20 @@ fun LauncherScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .semantics {
+                testTagsAsResourceId = true
+                testTag = if (navState == LauncherNavState.Home && dynamicBeyondViewport == 1 &&
+                    !unlockAlpha.isRunning && !unlockScale.isRunning && !unlockOffsetY.isRunning
+                ) "nova_home_ready" else "nova_home_root"
+            }
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .semantics {
+                    testTag = if (navState == LauncherNavState.Home && !pagerState.isScrollInProgress)
+                        "nova_home_page_${pagerState.currentPage}_ready" else "nova_home_pager_busy"
+                }
                 .graphicsLayer {
                     alpha = unlockAlpha.value
                 scaleX = unlockScale.value
@@ -670,6 +681,7 @@ fun LauncherScreen(
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 40.dp)
         ) {
             Surface(
@@ -1090,21 +1102,7 @@ fun LauncherScreen(
         )
     }
 
-    AnimatedVisibility(
-        visible = navState is LauncherNavState.InDrawer,
-        enter = fadeIn(
-            animationSpec = tween(160, easing = FastOutSlowInEasing)
-        ) + scaleIn(
-            initialScale = 0.96f,
-            animationSpec = tween(160, easing = FastOutSlowInEasing)
-        ),
-        exit = fadeOut(
-            animationSpec = tween(120, easing = FastOutLinearInEasing)
-        ) + scaleOut(
-            targetScale = 0.97f,
-            animationSpec = tween(120, easing = FastOutLinearInEasing)
-        )
-    ) {
+    DrawerTransition(visible = navState is LauncherNavState.InDrawer) { drawerMotion, drawerLayer ->
         // UI-1 Fase 2: el Drawer global consume el tema de la PÁGINA ACTIVA.
         // UI-1 Fase 5: el Drawer consume el tema RESUELTO de la página activa (del map
         // compartido; evita duplicar samplers). Fallback sync si aún no resolvió.
@@ -1123,7 +1121,11 @@ fun LauncherScreen(
             installedApps = installedApps,
             categories = state.drawerConfig.categories,
             isEs = state.language == "es",
-            onClose = { navState = LauncherNavState.Home }
+            onClose = { navState = LauncherNavState.Home },
+            modifier = drawerLayer.semantics {
+                testTag = if (drawerMotion.currentState && drawerMotion.targetState && !drawerMotion.isRunning)
+                    "nova_drawer_ready" else "nova_drawer_busy"
+            }
         )
         }
     }

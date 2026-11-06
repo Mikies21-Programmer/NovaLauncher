@@ -111,7 +111,6 @@ fun ViewOne(
 
         // Background - Dynamic (Image or Video con TextureView anti pantalla negra)
         DynamicBackground(
-            defaultVideoResId = com.daybreak.animelauncher.R.raw.bg_view_one,
             backgroundUri = config.backgroundUri,
             pageIndex = viewIndex,
             modifier = Modifier.fillMaxSize()
@@ -328,7 +327,15 @@ fun ViewOne(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxHeight()
+                // The bar background remains full-bleed; only its controls avoid cutouts,
+                // system bars and the end-edge gesture area.
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .windowInsetsPadding(
+                        WindowInsets.safeContent.only(
+                            WindowInsetsSides.Vertical + WindowInsetsSides.End
+                        )
+                    )
             ) {
                 // Top Logo (UI-1 Fase 6: logo configurable; misma geometría de círculo
                 // y mismo click. Colores desde tokens/config según el tema activo.)
