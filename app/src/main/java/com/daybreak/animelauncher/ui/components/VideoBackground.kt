@@ -1,7 +1,6 @@
 package com.daybreak.animelauncher.ui.components
 
 import android.view.LayoutInflater
-import androidx.annotation.RawRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -17,7 +16,6 @@ import com.daybreak.animelauncher.R
 
 @Composable
 fun VideoBackground(
-    @RawRes videoResId: Int,
     modifier: Modifier = Modifier,
     videoUri: String? = null,
     pageIndex: Int = 0
@@ -30,13 +28,13 @@ fun VideoBackground(
     // del pool se muestra en ventana mientras el registro apuntaba a la instancia nueva —
     // resultado: player decodificando hacia una vista no adjunta (último frame congelado).
     // Sin recycling, factory/update/SideEffect/onDispose operan siempre sobre ESTA vista.
-    val playerView = remember(videoResId) {
+    val playerView = remember(videoUri) {
         LayoutInflater.from(context).inflate(R.layout.video_player_view, null) as PlayerView
     }
 
     AndroidView(
         factory = { playerView },
-        update = { vp -> VideoWallpaperManager.registerPlayerView(pageIndex, vp, videoResId, videoUri) },
+        update = { vp -> VideoWallpaperManager.registerPlayerView(pageIndex, vp, 0, videoUri) },
         modifier = modifier
     )
 
@@ -44,7 +42,7 @@ fun VideoBackground(
     // misma página se desregistró tarde (onDispose diferido tras un rebuild), el binding se
     // restaura en la siguiente pasada sin depender de una recomposición posterior.
     SideEffect {
-        VideoWallpaperManager.registerPlayerView(pageIndex, playerView, videoResId, videoUri)
+        VideoWallpaperManager.registerPlayerView(pageIndex, playerView, 0, videoUri)
     }
 
     DisposableEffect(lifecycleOwner, pageIndex) {

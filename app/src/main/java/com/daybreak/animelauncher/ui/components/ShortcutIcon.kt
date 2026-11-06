@@ -3,14 +3,17 @@ package com.daybreak.animelauncher.ui.components
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
+import android.widget.Toast
+import com.daybreak.animelauncher.AppSystemActions
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.State
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -215,14 +218,26 @@ fun ShortcutIcon(
     modifier: Modifier = Modifier,
     defaultTint: Color = Color.White,
     customIconTint: Color? = null,
+    pressScale: State<Float>? = null,
     onLongClick: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var showAppInfoDialog by remember { mutableStateOf(false) }
 
+    // HOME observes the same source that combinedClickable uses for ripple/cancellation.
+    // Drawer supplies its existing row's press state; passive icons allocate no animator.
+    val interactionSource = if (onClick != null) remember { MutableInteractionSource() } else null
+    val scale = if (interactionSource != null) {
+        val pressed by interactionSource.collectIsPressedAsState()
+        rememberIconPressScale(pressed)
+    } else pressScale
+    val visualModifier = Modifier.fillMaxSize().iconPressScale(scale)
+
     val boxModifier = if (onClick != null) {
         modifier.combinedClickable(
+            interactionSource = interactionSource,
+            indication = LocalIndication.current,
             onClick = { onClick() },
             onLongClick = {
                 if (shortcut.packageName != null) {
@@ -236,71 +251,92 @@ fun ShortcutIcon(
         )
     } else modifier
 
+    val iconConsumer = resolveShortcutIconConsumerTarget(shortcut)
+
     Box(modifier = boxModifier, contentAlignment = Alignment.Center) {
-        if (!shortcut.customIconUri.isNullOrBlank()) {
-            val isAssetIcon = shortcut.customIconUri.contains("android_asset/iconos")
-            val colorFilter = if (isAssetIcon) {
-                ColorFilter.tint(customIconTint ?: Color.White)
-            } else {
-                null
+        when (val consumer = iconConsumer) {
+            is ShortcutIconConsumerTarget.MaterialPictogram -> {
+                Icon(
+                    imageVector = requireNotNull(CustomIconMigrationPolicy.materialIcon(consumer.uriString)),
+                    contentDescription = shortcut.name,
+                    tint = customIconTint ?: Color.White,
+                    modifier = visualModifier
+                )
             }
-            Image(
-                painter = rememberAsyncImagePainter(
-                    ImageRequest.Builder(LocalContext.current)
-                        .data(shortcut.customIconUri)
-                        .allowHardware(true)
-                        .build()
-                ),
-                contentDescription = shortcut.name,
-                modifier = Modifier.fillMaxSize(),
-                colorFilter = colorFilter
-            )
-        } else if (shortcut.packageName != null) {
-            var appIconBitmap by remember(shortcut.packageName) { mutableStateOf(IconCache.getCached(shortcut.packageName)) }
-            var isLoadFailed by remember(shortcut.packageName) { mutableStateOf(IconCache.isFailed(shortcut.packageName)) }
-            
-            if (appIconBitmap == null && !isLoadFailed) {
-                LaunchedEffect(shortcut.packageName) {
-                    val loaded = IconCache.loadIcon(context, shortcut.packageName)
-                    if (loaded != null) {
-                        appIconBitmap = loaded
-                    } else if (IconCache.isFailed(shortcut.packageName)) {
-                        isLoadFailed = true
+            is ShortcutIconConsumerTarget.CoilCustomIcon -> {
+                val customUri = consumer.uriString
+                val colorFilter = if (CustomIconMigrationPolicy.isOriginalPictogramAssetUri(customUri)) {
+                    null
+                } else if (customUri.contains("android_asset/iconos")) {
+                    ColorFilter.tint(customIconTint ?: Color.White)
+                } else {
+                    null
+                }
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        ImageRequest.Builder(LocalContext.current)
+                            .data(customUri)
+                            .allowHardware(true)
+                            .apply {
+                                AssetIconCachePolicy.cacheKey(customUri)?.let { cacheKey ->
+                                    memoryCacheKey(cacheKey)
+                                    diskCacheKey(cacheKey)
+                                }
+                            }
+                            .build()
+                    ),
+                    contentDescription = shortcut.name,
+                    modifier = visualModifier,
+                    colorFilter = colorFilter
+                )
+            }
+            is ShortcutIconConsumerTarget.LocalPackageIcon -> {
+                val packageName = consumer.packageName
+                var appIconBitmap by remember(packageName) { mutableStateOf(IconCache.getCached(packageName)) }
+                var isLoadFailed by remember(packageName) { mutableStateOf(IconCache.isFailed(packageName)) }
+                if (appIconBitmap == null && !isLoadFailed) {
+                    LaunchedEffect(packageName) {
+                        val loaded = IconCache.loadIcon(context, packageName)
+                        if (loaded != null) {
+                            appIconBitmap = loaded
+                        } else if (IconCache.isFailed(packageName)) {
+                            isLoadFailed = true
+                        }
                     }
                 }
-            }
-            val currentBitmap = appIconBitmap
-            if (currentBitmap != null) {
+                val currentBitmap = appIconBitmap
+                if (currentBitmap != null) {
                 Image(
                     bitmap = currentBitmap,
                     contentDescription = shortcut.name,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = visualModifier
                 )
-            } else if (isLoadFailed) {
+                } else if (isLoadFailed) {
                 // Fallback explícito únicamente ante fallo real comprobado de carga
-                Icon(Icons.Outlined.Android, contentDescription = shortcut.name, tint = defaultTint, modifier = Modifier.fillMaxSize())
-            } else {
+                Icon(Icons.Outlined.Android, contentDescription = shortcut.name, tint = defaultTint, modifier = visualModifier)
+                } else {
                 // Estado de carga controlado: placeholder sutil que evita el parpadeo del icono genérico blanco
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
+                    modifier = visualModifier
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color.White.copy(alpha = 0.08f))
                 )
+                }
             }
-        } else {
-            val iconVector = when (shortcut.id) {
-                "default_search" -> Icons.Outlined.Search
-                "default_camera" -> Icons.Outlined.CameraAlt
-                "default_chat" -> Icons.Outlined.ChatBubbleOutline
-                "default_phone" -> Icons.Outlined.Smartphone
-                "default_home" -> Icons.Outlined.Home
-                "default_help" -> Icons.AutoMirrored.Outlined.HelpOutline
-                "default_headphones" -> Icons.Outlined.Headphones
-                "default_calendar" -> Icons.Outlined.CalendarToday
-                else -> Icons.Outlined.Apps
+            ShortcutIconConsumerTarget.None -> {
+                val iconVector = when (shortcut.id) {
+                    "default_search" -> Icons.Outlined.Search
+                    "default_camera" -> Icons.Outlined.CameraAlt
+                    "default_chat" -> Icons.Outlined.ChatBubbleOutline
+                    "default_phone" -> Icons.Outlined.Smartphone
+                    "default_home" -> Icons.Outlined.Home
+                    "default_help" -> Icons.AutoMirrored.Outlined.HelpOutline
+                    "default_headphones" -> Icons.Outlined.Headphones
+                    "default_calendar" -> Icons.Outlined.CalendarToday
+                    else -> Icons.Outlined.Apps
+                }
+                Icon(iconVector, contentDescription = shortcut.name, tint = defaultTint, modifier = visualModifier)
             }
-            Icon(iconVector, contentDescription = shortcut.name, tint = defaultTint, modifier = Modifier.fillMaxSize())
         }
     }
 
@@ -308,51 +344,105 @@ fun ShortcutIcon(
         val isEs = remember {
             java.util.Locale.getDefault().language.startsWith("es")
         }
-        AlertDialog(
+        HomeAppContextMenu(
+            appName = shortcut.name,
+            isEs = isEs,
             onDismissRequest = { showAppInfoDialog = false },
-            containerColor = Color(0xFF08080C),
-            titleContentColor = Color(0xFF00F0FF),
-            textContentColor = Color.White,
-            title = { Text(shortcut.name) },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = {
-                            showAppInfoDialog = false
-                            try {
-                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                    data = Uri.fromParts("package", shortcut.packageName, null)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF00F0FF),
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = if (isEs) "ℹ️ Información de la aplicación" else "ℹ️ App info",
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(
-                    onClick = { showAppInfoDialog = false },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF00F0FF))
-                ) {
-                    Text(if (isEs) "Cancelar" else "Cancel")
+            onAppInfo = {
+                showAppInfoDialog = false
+                val result = AppSystemActions.launch(
+                    context, shortcut.packageName, AppSystemActions.Action.INFO
+                ) { context.startActivity(it) }
+                AppSystemActions.errorMessage(result, isEs)?.let { message ->
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 }
             }
         )
     }
 }
 
+/**
+ * Uses the same native AlertDialog policy as the Drawer: no nested animation
+ * or retained invisible window. The owner dismisses before opening Android Settings.
+ */
+@Composable
+internal fun HomeAppContextMenu(
+    appName: String,
+    isEs: Boolean,
+    onDismissRequest: () -> Unit,
+    onAppInfo: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+        containerColor = Color(0xFF08080C),
+        titleContentColor = Color(0xFF00F0FF),
+        textContentColor = Color.White,
+        title = { Text(appName) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onAppInfo,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00F0FF),
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (isEs) "ℹ️ Información de la aplicación" else "ℹ️ App info",
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(
+                onClick = onDismissRequest,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF00F0FF))
+            ) {
+                Text(if (isEs) "Cancelar" else "Cancel")
+            }
+        }
+    )
+}
+
+sealed class ShortcutIconConsumerTarget {
+    data class MaterialPictogram(val uriString: String) : ShortcutIconConsumerTarget()
+    data class CoilCustomIcon(val uriString: String) : ShortcutIconConsumerTarget()
+    data class LocalPackageIcon(val packageName: String) : ShortcutIconConsumerTarget()
+    object None : ShortcutIconConsumerTarget()
+}
+
+/**
+ * Versioned Coil keys make the approved byte replacement visible immediately after an
+ * update while keeping the persisted asset URI unchanged.
+ */
+internal object AssetIconCachePolicy {
+    private const val PICTOGRAM_CACHE_NAMESPACE = "orivolt-pictograms-07c-7c-2"
+    private const val ASSET_ICON_PREFIX = "file:///android_asset/iconos/"
+
+    fun cacheKey(uri: String): String? =
+        uri.takeIf { it.startsWith(ASSET_ICON_PREFIX) }
+            ?.let { "$PICTOGRAM_CACHE_NAMESPACE:$it" }
+}
+
+internal fun resolveShortcutIconConsumerTarget(shortcut: AppShortcut): ShortcutIconConsumerTarget {
+    val customUri = shortcut.customIconUri
+    return when {
+        CustomIconMigrationPolicy.isOriginalPictogramAssetUri(customUri) ->
+            ShortcutIconConsumerTarget.MaterialPictogram(customUri!!)
+        CustomIconMigrationPolicy.shouldUsePackageIcon(customUri, shortcut.packageName) ->
+            ShortcutIconConsumerTarget.LocalPackageIcon(shortcut.packageName!!)
+        CustomIconMigrationPolicy.shouldUseGenericFallback(customUri, shortcut.packageName) ->
+            ShortcutIconConsumerTarget.None
+        !customUri.isNullOrBlank() && LauncherMediaUriValidator.isAllowedMediaUri(customUri) ->
+            ShortcutIconConsumerTarget.CoilCustomIcon(customUri)
+        !shortcut.packageName.isNullOrBlank() ->
+            ShortcutIconConsumerTarget.LocalPackageIcon(shortcut.packageName)
+        else -> ShortcutIconConsumerTarget.None
+    }
+}

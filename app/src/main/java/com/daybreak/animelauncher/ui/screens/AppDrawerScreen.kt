@@ -1,9 +1,21 @@
 package com.daybreak.animelauncher.ui.screens
 
+import android.app.Activity
 import android.content.Intent
+import android.widget.Toast
+import com.daybreak.animelauncher.AppSystemActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
+import androidx.compose.animation.EnterExitState
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.animation.AnimatedVisibility
@@ -61,16 +73,13 @@ import com.daybreak.animelauncher.theming.surface
 import com.daybreak.animelauncher.theming.textPrimary
 import com.daybreak.animelauncher.theming.textSecondary
 import com.daybreak.animelauncher.ui.components.ShortcutIcon
+import com.daybreak.animelauncher.ui.components.CustomIconMigrationPolicy
+import com.daybreak.animelauncher.ui.components.rememberIconPressScale
 import com.daybreak.animelauncher.ui.theme.parseColorSafe
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
-import com.daybreak.animelauncher.getAssetImages
-import androidx.compose.foundation.Image
-import androidx.compose.ui.graphics.ColorFilter
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,7 +89,8 @@ fun AppDrawerScreen(
     installedApps: List<AppShortcut>,
     categories: List<DrawerCategory>,
     isEs: Boolean,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryIndex by remember { mutableStateOf(0) }
@@ -100,6 +110,28 @@ fun AppDrawerScreen(
     var newCategoryName by remember { mutableStateOf("") }
     
     val context = LocalContext.current
+    val uninstallLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // Never remove optimistically: cancellation leaves the list untouched.
+        // PACKAGE_REMOVED already invalidates IconCache and refreshes the list;
+        // the result is an additional refresh for system UIs that return success.
+        if (result.resultCode == Activity.RESULT_OK) viewModel.refreshInstalledApps()
+    }
+    val openSystemAction: (AppShortcut, AppSystemActions.Action) -> Unit = { app, action ->
+        showAppMenu = null
+        val result = AppSystemActions.launch(context, app.packageName, action) { intent ->
+            if (action == AppSystemActions.Action.UNINSTALL) {
+                uninstallLauncher.launch(intent)
+            } else {
+                context.startActivity(intent)
+            }
+        }
+        if (result == AppSystemActions.Result.PACKAGE_MISSING) viewModel.refreshInstalledApps()
+        AppSystemActions.errorMessage(result, isEs)?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Prioridad de botón Back dentro del App Drawer:
     // Si hay un diálogo o menú contextual abierto, lo cierra; si no, cierra el drawer.
@@ -243,7 +275,7 @@ fun AppDrawerScreen(
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(style.appDrawerBgColor.parseColorSafe().copy(alpha = style.appDrawerBgOpacity))
             .clickable(onClick = onClose) // Click outside to close
@@ -251,7 +283,14 @@ fun AppDrawerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
+                // El fondo del drawer sigue bajo las barras. Este contenedor reúne los
+                // controles y evita que búsqueda/categorías queden bajo cutouts o gestos
+                // laterales, incluido landscape y RTL.
+                .windowInsetsPadding(
+                    WindowInsets.safeContent.only(
+                        WindowInsetsSides.Top + WindowInsetsSides.Start + WindowInsetsSides.End
+                    )
+                )
                 .clickable(enabled = false, onClick = {}) // Consume clicks inside
         ) {
             // Search Bar
@@ -359,6 +398,10 @@ fun AppDrawerScreen(
                 ),
                 modifier = Modifier
                     .fillMaxSize()
+                    .semantics {
+                        testTag = if (listState.isScrollInProgress)
+                            "nova_drawer_list_busy" else "nova_drawer_list_idle"
+                    }
                     .pointerInput(Unit) {
                         val touchSlop = viewConfiguration.touchSlop
                         awaitPointerEventScope {
@@ -435,6 +478,7 @@ fun AppDrawerScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 18.dp, bottom = 8.dp)
+                                    .semantics { testTag = "nova_drawer_section_${item.title}" }
                             ) {
                                 Text(
                                     text = item.title,
@@ -470,6 +514,7 @@ fun AppDrawerScreen(
                                         }
                                     }
                                 },
+                                onLongPressLabel = if (isEs) "Opciones de la aplicación" else "App options",
                                 onLongPress = {
                                     showAppMenu = app
                                 }
@@ -481,21 +526,30 @@ fun AppDrawerScreen(
         }
 
         // Alphabet Index Rail (Bloque 2)
-        val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         AnimatedVisibility(
             visible = isIndexVisible && searchQuery.isBlank() && drawerData.availableSections.isNotEmpty(),
             enter = fadeIn(animationSpec = tween(150)),
             exit = fadeOut(animationSpec = tween(300)),
             modifier = Modifier
                 .align(Alignment.CenterEnd)
+                .windowInsetsPadding(
+                    WindowInsets.safeContent.only(
+                        WindowInsetsSides.Top + WindowInsetsSides.Bottom + WindowInsetsSides.End
+                    )
+                )
                 .padding(
                     top = 100.dp,
-                    bottom = 16.dp + navBarBottom,
+                    bottom = 16.dp,
                     end = 4.dp
                 )
         ) {
+            val indexMotion = transition
             AlphabetIndexRail(
                 sections = drawerData.availableSections,
+                isVisibilitySettled = {
+                    indexMotion.currentState == EnterExitState.Visible &&
+                        indexMotion.targetState == EnterExitState.Visible && !indexMotion.isRunning
+                },
                 activeLetter = activeLetter,
                 selectedLetter = selectedLetter,
                 isTouchingIndex = isTouchingIndex,
@@ -525,62 +579,22 @@ fun AppDrawerScreen(
         }
     }
 
-    // App Context Menu Dialog
+    // One nullable selection owns one native window; no delayed exit state.
     if (showAppMenu != null) {
         val app = showAppMenu!!
-        AlertDialog(
+        DrawerAppContextMenu(
+            app = app,
+            categories = categories,
+            isEs = isEs,
             onDismissRequest = { showAppMenu = null },
-            containerColor = themeTokens.surface,
-            titleContentColor = themeTokens.accent,
-            textContentColor = Color.White,
-            title = { Text(app.name) },
-            text = {
-                Column {
-                    Button(
-                        onClick = {
-                            showIconPicker = app
-                            showAppMenu = null
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = themeTokens.accent, contentColor = Color.Black)
-                    ) {
-                        Text(if (isEs) "🎨 Cambiar Icono" else "🎨 Change Icon", fontWeight = FontWeight.Bold)
-                    }
-
-                    Text(if (isEs) "Mover a categoría:" else "Move to category:")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    categories.forEach { category ->
-                        if (category.id != "all") {
-                            val inCategory = category.packageNames.contains(app.packageName)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        if (app.packageName != null) {
-                                            viewModel.moveAppToCategory(app.packageName, category.id)
-                                        }
-                                        showAppMenu = null
-                                    }
-                                    .padding(vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = inCategory,
-                                    onClick = null,
-                                    colors = RadioButtonDefaults.colors(selectedColor = themeTokens.accent)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(category.name)
-                            }
-                        }
-                    }
+            onChangeIcon = { showIconPicker = app; showAppMenu = null },
+            onMoveToCategory = { categoryId ->
+                if (app.packageName != null) {
+                    viewModel.moveAppToCategory(app.packageName, categoryId)
                 }
+                showAppMenu = null
             },
-            confirmButton = {
-                TextButton(onClick = { showAppMenu = null }) {
-                    Text(if (isEs) "Cerrar" else "Close", color = themeTokens.accent)
-                }
-            }
+            onSystemAction = openSystemAction
         )
     }
 
@@ -600,7 +614,9 @@ fun AppDrawerScreen(
             }
         }
         
-        val presetIcons = remember { getAssetImages(context, "iconos") }
+        // Stable URI keys preserve existing selections while Material Icons provide
+        // the rendered image instead of the former bundled PNG files.
+        val presetIcons = CustomIconMigrationPolicy.originalPictogramAssetUris.sorted()
 
         AlertDialog(
             onDismissRequest = { showIconPicker = null },
@@ -626,7 +642,7 @@ fun AppDrawerScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(50.dp),
+                        columns = GridCells.Adaptive(56.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
@@ -634,9 +650,14 @@ fun AppDrawerScreen(
                         items(presetIcons) { iconUri ->
                             Box(
                                 modifier = Modifier
-                                    .size(50.dp)
+                                    .size(56.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.DarkGray.copy(alpha=0.3f))
+                                    .background(themeTokens.surface.copy(alpha = 0.82f))
+                                    .border(
+                                        width = 1.dp,
+                                        color = themeTokens.border.copy(alpha = 0.35f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
                                     .clickable {
                                         if (app.packageName != null) {
                                             viewModel.updateDrawerAppIcon(app.packageName, iconUri)
@@ -645,15 +666,11 @@ fun AppDrawerScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Image(
-                                    painter = rememberAsyncImagePainter(
-                                        ImageRequest.Builder(LocalContext.current)
-                                            .data(iconUri)
-                                            .build()
-                                    ),
+                                Icon(
+                                    imageVector = requireNotNull(CustomIconMigrationPolicy.materialIcon(iconUri)),
                                     contentDescription = null,
-                                    modifier = Modifier.size(36.dp),
-                                    colorFilter = ColorFilter.tint(Color.White)
+                                    tint = themeTokens.accent,
+                                    modifier = Modifier.size(42.dp)
                                 )
                             }
                         }
@@ -713,6 +730,93 @@ fun AppDrawerScreen(
 }
 
 /**
+ * Keep Material 3 AlertDialog's native window motion, focus and dismissal.
+ * Adding a Compose fade/scale would stack with OEM window animations.
+ * Removal is immediate: actions never wait for a custom exit animation.
+ */
+@Composable
+internal fun DrawerAppContextMenu(
+    app: AppShortcut,
+    categories: List<DrawerCategory>,
+    isEs: Boolean,
+    onDismissRequest: () -> Unit,
+    onChangeIcon: () -> Unit,
+    onMoveToCategory: (String) -> Unit,
+    onSystemAction: (AppShortcut, AppSystemActions.Action) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val themeTokens = LocalLauncherThemeTokens.current
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+        containerColor = themeTokens.surface,
+        titleContentColor = themeTokens.accent,
+        textContentColor = Color.White,
+        title = { Text(app.name) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Button(
+                    onClick = onChangeIcon,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = themeTokens.accent, contentColor = Color.Black)
+                ) {
+                    Text(if (isEs) "🎨 Cambiar Icono" else "🎨 Change Icon", fontWeight = FontWeight.Bold)
+                }
+
+                TextButton(
+                    onClick = { onSystemAction(app, AppSystemActions.Action.INFO) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (isEs) "Información de la aplicación" else "App info",
+                        color = themeTokens.accent
+                    )
+                }
+                TextButton(
+                    onClick = { onSystemAction(app, AppSystemActions.Action.UNINSTALL) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (isEs) "Desinstalar" else "Uninstall",
+                        color = themeTokens.accent
+                    )
+                }
+
+                Text(if (isEs) "Mover a categoría:" else "Move to category:")
+                Spacer(modifier = Modifier.height(8.dp))
+                categories.forEach { category ->
+                    if (category.id != "all") {
+                        val inCategory = category.packageNames.contains(app.packageName)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onMoveToCategory(category.id)
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = inCategory,
+                                onClick = null,
+                                colors = RadioButtonDefaults.colors(selectedColor = themeTokens.accent)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(category.name)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(if (isEs) "Cerrar" else "Close", color = themeTokens.accent)
+            }
+        }
+    )
+}
+
+/**
  * Rail vertical de índice alfabético A-Z (Bloque 2).
  * - Estética minimalista/glass acorde a NovaLauncher.
  * - Soporta tanto tap directo sobre una letra como desplazamiento continuo (drag) táctil.
@@ -720,8 +824,9 @@ fun AppDrawerScreen(
  * - Scrubbing: seguimiento directo 1:1, actualización instantánea sin tarjeta flotante ni animaciones intermedias ("latest event wins").
  */
 @Composable
-private fun AlphabetIndexRail(
+internal fun AlphabetIndexRail(
     sections: List<Char>,
+    isVisibilitySettled: () -> Boolean,
     activeLetter: Char?,
     selectedLetter: Char?,
     isTouchingIndex: Boolean,
@@ -759,6 +864,11 @@ private fun AlphabetIndexRail(
 
     Box(
         modifier = modifier
+            .semantics {
+                testTag = if (isVisibilitySettled() && !isTouchingIndex && tappedLetter == null &&
+                    !tapHaloScale.isRunning && !cardAlpha.isRunning && !cardScale.isRunning
+                ) "nova_index_ready" else "nova_index_busy"
+            }
             .width(38.dp)
             .border(
                 width = 0.5.dp,
@@ -876,12 +986,12 @@ private fun AlphabetIndexRail(
                 val isActive = char == currentActiveChar
                 val isNovaChar = char in "NOVA"
                 val isTapped = char == tappedLetter
-                val currentHaloScale = if (isTapped) tapHaloScale.value else 1f
 
                 Box(
                     modifier = Modifier
                         .width(38.dp)
-                        .height(itemHeightDp),
+                        .height(itemHeightDp)
+                        .semantics { testTag = "nova_index_letter_$char" },
                     contentAlignment = Alignment.Center
                 ) {
                     if (isActive) {
@@ -889,8 +999,10 @@ private fun AlphabetIndexRail(
                             modifier = Modifier
                                 .size(25.dp)
                                 .graphicsLayer {
-                                    scaleX = currentHaloScale
-                                    scaleY = currentHaloScale
+                                    // Transform-only animation: read in layer update, not composition.
+                                    val haloScale = if (isTapped) tapHaloScale.value else 1f
+                                    scaleX = haloScale
+                                    scaleY = haloScale
                                 }
                                 .background(
                                     color = themeTokens.accent.copy(alpha = if (isTapped) 0.30f else 0.22f),
@@ -909,7 +1021,10 @@ private fun AlphabetIndexRail(
         }
 
         // Tarjeta Glass temporal a la izquierda en TAP directo (~125ms)
-        if (cardAlpha.value > 0f || tappedLetter != null) {
+        // Discrete lifetime: DOWN mounts it; tap dismissal clears tappedLetter only
+        // after both exit animations. Scrubbing removes it immediately, as designed.
+        // The card has no pointer/click handlers, even during its alpha-zero tail.
+        if (tappedLetter != null) {
             Box(
                 modifier = Modifier
                     .offset {
@@ -952,14 +1067,16 @@ private fun AlphabetIndexRail(
  * y el lanzamiento de la actividad se despacha inmediatamente en onTap sin bloquear.
  */
 @Composable
-private fun DrawerAppRowItem(
+internal fun DrawerAppRowItem(
     app: AppShortcut,
     textColor: Color,
     customIconTint: Color?,
     onTap: () -> Unit,
+    onLongPressLabel: String,
     onLongPress: () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    val iconScale = rememberIconPressScale(isPressed)
     val rowAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.85f else 1.0f,
         animationSpec = tween(durationMillis = 70, easing = LinearEasing),
@@ -974,6 +1091,11 @@ private fun DrawerAppRowItem(
             .padding(vertical = 4.dp)
             .graphicsLayer {
                 alpha = rowAlpha
+            }
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                onClick { onTap(); true }
+                onLongClick(label = onLongPressLabel) { onLongPress(); true }
             }
             .pointerInput(app.id) {
                 detectTapGestures(
@@ -997,7 +1119,8 @@ private fun DrawerAppRowItem(
         ShortcutIcon(
             shortcut = app,
             modifier = Modifier.size(48.dp),
-            customIconTint = customIconTint
+            customIconTint = customIconTint,
+            pressScale = iconScale
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(

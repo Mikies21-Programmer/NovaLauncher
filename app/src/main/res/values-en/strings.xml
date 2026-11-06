@@ -1,10 +1,10 @@
 <resources>
-    <string name="app_name">NOVALAUNCHER</string>
-    <string name="accessibility_description">Required to lock screen and expand notifications via gestures in NovaLauncher.</string>
+    <string name="app_name">Orivolt Home</string>
+    <string name="accessibility_description">Required to lock screen and expand notifications via gestures in Orivolt Home.</string>
 
     <!-- Prominent Disclosure Strings (EN) -->
     <string name="accessibility_disclosure_title">Accessibility Service Usage</string>
-    <string name="accessibility_disclosure_message">NovaLauncher uses the Accessibility Service exclusively to perform system global actions via gestures and shortcuts:\n\n• Double tap: lock the screen.\n• Swipe down: open the notification panel.\n• Tap the message counter: open the notification panel.\n\nNovaLauncher does not use the service to read content from other applications, extract screen text, or record or transmit any accessibility event content.\n\nThese features are optional and the user must accept this disclosure before configuring the service in system settings.</string>
+    <string name="accessibility_disclosure_message">Orivolt Home uses the Accessibility Service only to perform these system global actions:\n\n• Double tap: lock the screen.\n• Swipe down: open the notification panel.\n• Tap the message counter: open the notification panel.\n\nThe service configuration does not allow window-content retrieval. The service ignores accessibility events and does not store or share data through them.\n\nThis is optional. If you accept, Android Settings will open so you can decide whether to enable it.</string>
     <string name="accessibility_disclosure_accept">Accept &amp; Configure</string>
     <string name="accessibility_disclosure_cancel">Not now</string>
 
@@ -19,7 +19,7 @@
     <string name="settings_about_card_title">Information &amp; Privacy</string>
     <string name="settings_about_version">Version %1$s</string>
     <string name="settings_privacy_policy_title">Privacy Policy</string>
-    <string name="settings_privacy_policy_desc">Learn how NovaLauncher protects your data and privacy</string>
+    <string name="settings_privacy_policy_desc">Learn how Orivolt Home protects your data and privacy</string>
     <string name="settings_privacy_policy_btn">View policy</string>
 
     <!-- Hidden Apps Strings (EN) -->

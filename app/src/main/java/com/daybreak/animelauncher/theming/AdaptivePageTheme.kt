@@ -7,6 +7,8 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import com.daybreak.animelauncher.AdvancedStyleConfig
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.util.ArrayDeque
@@ -17,7 +19,7 @@ import java.util.ArrayDeque
  * - MANUAL: resolución síncrona determinista (paridad exacta, sin IO).
  * - AUTO + imagen: análisis asíncrono (Fase 3) con fail-safe MANUAL inicial.
  * - AUTO + video (Fase 5): sampling periódico amortiguado cada 8 s con
- *   [VideoFrameExtractor.extractFrameAt] + [WallpaperAnalyzer] + ventana de
+ *   [VideoFrameExtractor.extractPaletteAt] + [WallpaperAnalyzer] + ventana de
  *   3 muestras ([ThemePaletteAggregator]) + [VideoPaletteGate] (umbral
  *   perceptual). El sampling SOLO corre con página visible y app en foreground;
  *   se cancela al ocultar/background y reanuda al volver. Sin trabajo por frame
@@ -60,7 +62,7 @@ fun rememberAdaptivePageTheme(
 
     // Esta versión de Compose no tiene overload de 4 keys: se empaquetan en una
     // data class (equals/hashCode estructurales → reinicio del productor correcto).
-    val themeKeys = ThemeKeys(backgroundUri, styleConfig, isPageVisible, isAppForeground)
+    val themeKeys = ThemeKeys(pageIndex, backgroundUri, styleConfig, isPageVisible, isAppForeground)
 
     return produceState(
         initialValue = failSafe,
@@ -94,8 +96,8 @@ fun rememberAdaptivePageTheme(
                 // El bucle se cancela al cambiar keys o al dispose (isActive false).
                 while (isActive) {
                     val positionMs = if (durationMs > 0) (tick * 2000L) % durationMs else 0L
-                    val frame = VideoFrameExtractor.extractFrameAt(appContext, videoUri, positionMs)
-                    val palette = WallpaperAnalyzer.analyzeSync(frame).also { frame?.recycle() }
+                    val palette = VideoFrameExtractor.extractPaletteAt(appContext, videoUri, positionMs)
+                    currentCoroutineContext().ensureActive()
                     window.addLast(palette)
                     while (window.size > 3) window.removeFirst()
                     val candidate = if (window.size == 1) palette
@@ -103,6 +105,7 @@ fun rememberAdaptivePageTheme(
                     if (VideoPaletteGate.shouldUpdate(applied, candidate)) {
                         applied = candidate
                         val resolved = AdaptiveThemeEngine.buildAutoPageTheme(pageIndex, candidate, styleConfig)
+                        currentCoroutineContext().ensureActive()
                         value = resolved
                         logResolved("video", pageIndex, mode, resolved, tick)
                         onResolved?.invoke(resolved)
@@ -155,6 +158,7 @@ internal fun isImageUri(backgroundUri: String?, context: Context): Boolean {
 
 /** UI-1 Fase 5: clave compuesta del productor de tema (equals/hashCode estructurales). */
 private data class ThemeKeys(
+    val pageIndex: Int,
     val backgroundUri: String?,
     val styleConfig: AdvancedStyleConfig,
     val isPageVisible: Boolean,

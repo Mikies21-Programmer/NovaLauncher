@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Política de privacidad de Orivolt Home.">
+  <title>Política de privacidad | Orivolt Home</title>
+  <style>
+    :root { color-scheme: dark; --bg:#091019; --panel:#101b29; --line:#28445e; --text:#eef5fb; --muted:#b8c7d5; --accent:#63d7ff; --notice:#fff0b8; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(160deg,#08111b,#101a29); color:var(--text); font:16px/1.62 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+    main { width:min(920px,calc(100% - 32px)); margin:0 auto; padding:32px 0 56px; }
+    header, section { background:rgba(16,27,41,.94); border:1px solid var(--line); border-radius:16px; padding:clamp(20px,4vw,38px); margin:18px 0; }
+    header { text-align:center; } h1 { margin:0 0 8px; font-size:clamp(1.8rem,5vw,2.7rem); } h2 { color:var(--accent); font-size:1.3rem; margin:1.9rem 0 .65rem; } h2:first-child { margin-top:0; } h3 { font-size:1.05rem; margin:1.2rem 0 .35rem; } p,li { color:var(--muted); } strong { color:var(--text); } a { color:var(--accent); } code { color:#d8f5ff; overflow-wrap:anywhere; }
+    .meta { color:var(--muted); margin:0; } .language-nav { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin:20px 0 0; } .language-nav a { border:1px solid var(--accent); border-radius:999px; padding:7px 14px; text-decoration:none; font-weight:700; }
+    .notice { border-left:4px solid #e2be49; background:#292719; color:var(--notice); padding:14px 16px; border-radius:8px; } .notice strong { color:var(--notice); } .placeholder { color:#ffd970; font-weight:700; } ul { padding-left:1.3rem; } footer { text-align:center; color:var(--muted); font-size:.9rem; padding:10px; }
+    @media print { body { background:#fff; color:#111; } header,section { color:#111; background:#fff; border-color:#aaa; } p,li,.meta,footer { color:#333; } h2,a { color:#005d80; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Orivolt Home</h1>
+    <p class="meta">Política de privacidad / Privacy Policy</p>
+    <p class="meta"><strong>Fecha de vigencia / Effective date:</strong> 4 de noviembre de 2026 / November 4, 2026</p>
+    <nav class="language-nav" aria-label="Idioma / Language"><a href="#es">Español</a><a href="#en">English</a></nav>
+  </header>
+
+  <section id="es" lang="es">
+    <h2>Política de privacidad — Español</h2>
+    <p><strong>Responsable:</strong> DayBreak472. <strong>Tipo de cuenta:</strong> personal. <strong>Contacto de privacidad:</strong> dbreak472@gmail.com.</p>
+    <div class="notice"><strong>Nota de transparencia.</strong> Esta versión describe las funciones y el tratamiento local comprobados en la aplicación. La verificación de tráfico de red y de dependencias aún debe cerrarse antes de publicar una declaración absoluta sobre recopilación, compartición o la ficha Data Safety de Google Play.</div>
+    <h2>1. Alcance</h2>
+    <p>Orivolt Home es un lanzador de Android. Esta política explica qué información procesa la aplicación para sus funciones, dónde se conserva y cuándo intervienen Android, proveedores de widgets, proveedores de documentos o el navegador elegido por el usuario.</p>
+    <h2>2. Datos tratados localmente</h2>
+    <h3>Inventario de aplicaciones</h3><p>Para mostrar el cajón y permitir abrir aplicaciones, Orivolt Home consulta las actividades disponibles para el lanzador de Android. Esto puede incluir el nombre, identificador de paquete e icono de las aplicaciones instaladas. Se usa en el dispositivo para presentar, buscar y abrir aplicaciones; las selecciones de Apps ocultas se usan además para ocultarlas del cajón y la búsqueda.</p>
+    <h3>Preferencias, configuración y medios elegidos</h3><p>Las preferencias de apariencia, disposición, fondos, iconos personalizados y configuración del lanzador se guardan en el almacenamiento privado de la aplicación. Al seleccionar una imagen o vídeo, Android proporciona una referencia URI mediante sus selectores; Orivolt Home puede conservar la referencia y el permiso de lectura asociado para volver a mostrar el elemento elegido. La aplicación no solicita acceso general al almacenamiento.</p>
+    <h3>Widgets y memoria del dispositivo</h3><p>Orivolt Home puede alojar widgets que el usuario elige. El contenido y las prácticas de datos de un widget corresponden a su aplicación proveedora; la interacción de esa aplicación con sus servicios se rige por su propia política. La aplicación también puede consultar información global de memoria RAM para mostrarla en la interfaz.</p>
+    <h2>3. Accesos opcionales</h2>
+    <h3>Acceso a notificaciones</h3><p>Si el usuario lo habilita en los ajustes de Android, el servicio de notificaciones calcula un contador de aplicaciones de mensajería con notificaciones activas. Para hacerlo usa el identificador de paquete, la categoría y si la notificación es continua; descarta llamadas y elementos continuos. El código no consulta el texto, remitente, asunto ni archivos adjuntos de las notificaciones. El contador se mantiene en memoria mientras funciona el servicio.</p>
+    <h3>Servicio de accesibilidad</h3><p>Si el usuario lo habilita en los ajustes de Android, el servicio permite acciones globales solicitadas desde el lanzador, como bloquear la pantalla o abrir el panel de notificaciones. Está configurado sin recuperación de contenido de ventanas y su manejador de eventos no procesa los eventos recibidos. No se declara acceso al contenido de pantalla de otras aplicaciones.</p>
+    <h2>4. Apps ocultas y seguridad</h2><p>La función opcional Apps ocultas conserva localmente los identificadores de paquete que el usuario decide ocultar y la configuración de protección. El archivo <code>nova_hidden_apps_prefs.xml</code> está separado del estado general. Si se usa un PIN, patrón o contraseña propios, el registro de verificación se deriva con PBKDF2 y se cifra con AES-GCM mediante Android Keystore en <code>nova_hidden_apps_vault.xml</code>. La autenticación biométrica o la credencial del dispositivo se solicita al sistema Android; Orivolt Home recibe el resultado de autenticación, no plantillas biométricas.</p>
+    <h2>5. Respaldo de Android</h2><p>El manifiesto permite los respaldos de Android. Los datos generales que Android considere elegibles pueden ser incluidos, restaurados o transferidos según la versión de Android, la configuración del dispositivo, la cuenta y el proveedor de respaldo del usuario. Orivolt Home no controla si esos respaldos se ejecutan ni su conservación.</p><p>Las reglas de respaldo excluyen expresamente <code>nova_hidden_apps_prefs.xml</code> y <code>nova_hidden_apps_vault.xml</code> de los conjuntos de respaldo aplicables, incluido respaldo en la nube y transferencia de dispositivo en Android 12 o posterior. Por ello, la configuración y el material de protección de Apps ocultas no están diseñados para migrarse mediante esos respaldos.</p>
+    <h2>6. Servicios externos iniciados por el usuario</h2><p>Cuando el usuario elige un archivo alojado por un proveedor de documentos o nube mediante el selector de Android, ese proveedor puede realizar una transferencia conforme a sus propios términos. Si el usuario abre un enlace, Android entrega la acción al navegador o aplicación correspondiente. Orivolt Home no opera el servicio externo ni sustituye sus políticas. Los widgets también pueden comunicarse con servicios de su proveedor.</p>
+    <h2>7. Conservación y eliminación</h2><p>Los datos locales se conservan mientras sean necesarios para la configuración elegida, hasta que el usuario los cambie, restablezca Apps ocultas, borre los datos de la aplicación o desinstale la aplicación, sujeto al comportamiento de Android. Las Apps ocultas pueden restablecerse desde su función de protección. La conservación de datos incluidos en un respaldo de Android depende de Android y del proveedor de respaldo.</p>
+    <h2>8. Seguridad</h2><p>La aplicación usa el almacenamiento privado y la sandbox de Android. Para credenciales propias de Apps ocultas usa derivación de clave y cifrado con Android Keystore como se describe arriba. Ninguna medida elimina todos los riesgos; proteja el dispositivo con bloqueo de pantalla y mantenga Android actualizado.</p>
+    <h2>9. Cambios y contacto</h2><p>Podemos actualizar esta política cuando cambien las funciones, los flujos de datos o los requisitos aplicables. Publicaremos la fecha de vigencia actualizada. Para consultas de privacidad, contacte a dbreak472@gmail.com.</p>
+  </section>
+
+  <section id="en" lang="en">
+    <h2>Privacy Policy — English</h2>
+    <p><strong>Controller:</strong> DayBreak472. <strong>Account type:</strong> personal. <strong>Privacy contact:</strong> dbreak472@gmail.com.</p>
+    <div class="notice"><strong>Transparency note.</strong> This version describes the app functions and local processing verified in the app. Network-traffic and dependency verification must be completed before publishing an absolute statement about collection, sharing, or the Google Play Data Safety form.</div>
+    <h2>1. Scope</h2><p>Orivolt Home is an Android launcher. This policy explains the information the app processes for its features, where it is kept, and when Android, widget providers, document providers, or the user’s selected browser are involved.</p>
+    <h2>2. Data processed locally</h2>
+    <h3>App inventory</h3><p>To show the app drawer and launch apps, Orivolt Home queries Android launcher activities. This may include installed apps’ name, package identifier, and icon. It is used on the device to display, search for, and launch apps; Hidden Apps selections are also used to hide apps from the drawer and search.</p>
+    <h3>Preferences, settings, and selected media</h3><p>Appearance preferences, layout, wallpapers, custom icons, and launcher settings are stored in the app’s private storage. When a user selects an image or video, Android provides a URI reference through its pickers; Orivolt Home may retain that reference and the related read permission to display the selected item again. The app does not request broad storage access.</p>
+    <h3>Widgets and device memory</h3><p>Orivolt Home can host widgets selected by the user. A widget’s content and data practices belong to its provider app; that app’s interaction with its services is governed by its own policy. The app may also read overall RAM information to display it in the interface.</p>
+    <h2>3. Optional access</h2>
+    <h3>Notification access</h3><p>If enabled by the user in Android settings, the notification service calculates a count of messaging apps with active notifications. It uses the package identifier, category, and ongoing status, and excludes calls and ongoing items. The code does not query notification text, sender, subject, or attachments. The count is held in memory while the service operates.</p>
+    <h3>Accessibility service</h3><p>If enabled by the user in Android settings, the service enables launcher-requested global actions, such as locking the screen or opening the notification shade. It is configured without window-content retrieval and its event handler does not process received events. This policy does not claim access to other apps’ screen content.</p>
+    <h2>4. Hidden Apps and security</h2><p>The optional Hidden Apps feature stores locally the package identifiers chosen for hiding and the protection configuration. <code>nova_hidden_apps_prefs.xml</code> is separated from general state. Where an app-specific PIN, pattern, or password is used, its verification record is derived with PBKDF2 and encrypted with AES-GCM through Android Keystore in <code>nova_hidden_apps_vault.xml</code>. Biometric authentication or device credentials are requested from Android; Orivolt Home receives the authentication result, not biometric templates.</p>
+    <h2>5. Android backups</h2><p>The manifest allows Android backups. General data that Android considers eligible may be backed up, restored, or transferred according to the Android version, device settings, user account, and backup provider. Orivolt Home does not control whether those backups run or how long they are retained.</p><p>Backup rules expressly exclude <code>nova_hidden_apps_prefs.xml</code> and <code>nova_hidden_apps_vault.xml</code> from the applicable backup sets, including cloud backup and device-to-device transfer on Android 12 or later. Accordingly, Hidden Apps configuration and protection material are not designed to migrate through those backups.</p>
+    <h2>6. User-initiated external services</h2><p>When a user selects a file hosted by a document or cloud provider through the Android picker, that provider may transfer data under its own terms. When the user opens a link, Android hands the action to the relevant browser or app. Orivolt Home does not operate that external service or replace its policies. Widgets may also communicate with their provider’s services.</p>
+    <h2>7. Retention and deletion</h2><p>Local data is retained while needed for the selected configuration, until the user changes it, resets Hidden Apps, clears app data, or uninstalls the app, subject to Android behavior. Hidden Apps can be reset from its protection feature. Retention of data included in an Android backup depends on Android and the backup provider.</p>
+    <h2>8. Security</h2><p>The app uses Android private storage and sandboxing. App-specific Hidden Apps credentials use key derivation and Android Keystore encryption as described above. No safeguard eliminates all risk; protect the device with a screen lock and keep Android updated.</p>
+    <h2>9. Changes and contact</h2><p>We may update this policy when app features, data flows, or applicable requirements change. We will publish an updated effective date. For privacy questions, contact dbreak472@gmail.com.</p>
+  </section>
+  <footer>© DayBreak472 — Orivolt Home</footer>
+</main>
+</body>
+</html>
